@@ -10,8 +10,8 @@ server.js
 .env.local
 .env.*.local
 
-# SQLite database (and its WAL files)
-data/
+# SQLite database (and its WAL files) - only the root level data folder
+/data/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
