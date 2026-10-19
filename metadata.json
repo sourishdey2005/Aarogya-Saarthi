@@ -1,0 +1,6 @@
+{
+  "name": "Aarogya Sarathi - ASHA Health Companion",
+  "description": "Offline-first rural health companion for ASHA workers featuring voice-driven patient registration, bilingual AI triage, camera OCR prescription scanning, and instant referral coordination.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

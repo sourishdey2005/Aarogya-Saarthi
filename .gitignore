@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+server.js
+
+# Local environment
+.env
+.env.local
+.env.*.local
+
+# SQLite database (and its WAL files)
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# API logs
+server/*.log
+
+# Editor / OS
+.DS_Store
+.vscode/
+.idea/
+*.tsbuildinfo

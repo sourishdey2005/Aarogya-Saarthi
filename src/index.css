@@ -1,0 +1,183 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #9c4500;
+  --color-primary-container: #e8762b;
+  --color-on-primary: #ffffff;
+  --color-primary-fixed: #ffdbca;
+  --color-primary-fixed-dim: #ffb68e;
+  --color-on-primary-fixed: #331200;
+  --color-on-primary-fixed-variant: #773300;
+
+  --color-secondary: #00696b;
+  --color-secondary-container: #8ff3f4;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #007072;
+  --color-secondary-fixed: #8ff3f4;
+  --color-secondary-fixed-dim: #72d6d8;
+  --color-on-secondary-fixed: #002020;
+  --color-on-secondary-fixed-variant: #004f51;
+
+  --color-tertiary: #006d38;
+  --color-tertiary-container: #3ba965;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #003619;
+  --color-tertiary-fixed: #8df9ac;
+  --color-tertiary-fixed-dim: #71dc92;
+  --color-on-tertiary-fixed: #00210d;
+  --color-on-tertiary-fixed-variant: #005229;
+
+  --color-surface: #f8f9ff;
+  --color-surface-dim: #d0dbed;
+  --color-surface-bright: #f8f9ff;
+  --color-surface-variant: #d9e3f6;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container: #e6eeff;
+  --color-surface-container-high: #dee9fc;
+  --color-surface-container-highest: #d9e3f6;
+
+  --color-on-surface: #121c2a;
+  --color-on-surface-variant: #574238;
+  --color-inverse-surface: #27313f;
+  --color-inverse-on-surface: #eaf1ff;
+
+  --color-error: #ba1a1a;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  --color-outline: #8a7266;
+  --color-outline-variant: #ddc1b3;
+
+  --spacing-gutter: 1rem;
+  --spacing-margin: 1rem;
+  --spacing-space-xs: 0.25rem;
+  --spacing-space-sm: 0.5rem;
+  --spacing-space-md: 1rem;
+  --spacing-space-lg: 1.5rem;
+  --spacing-space-xl: 2.25rem;
+
+  --font-headline: "Noto Sans", sans-serif;
+  --font-body: "Noto Sans", sans-serif;
+  --font-label: "Inter", sans-serif;
+}
+
+@layer base {
+  html, body {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    font-family: 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+    background-color: #f8f9ff;
+    color: #121c2a;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  /* Safe-area helpers used by the fixed header / bottom navigation */
+  .pt-safe {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .font-headline-sm {
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 18px;
+    line-height: 26px;
+    font-weight: 600;
+  }
+  .font-headline-md {
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 22px;
+    line-height: 30px;
+    font-weight: 700;
+  }
+  .font-headline-lg-mobile {
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 26px;
+    line-height: 36px;
+    font-weight: 700;
+  }
+  .font-label-sm {
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 500;
+  }
+  .font-label-md {
+    font-family: 'Inter', sans-serif;
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+  }
+  .font-label-lg {
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    line-height: 22px;
+    font-weight: 600;
+  }
+  .font-body-md {
+    font-family: 'Noto Sans', sans-serif;
+    font-size: 16px;
+    line-height: 24px;
+    font-weight: 400;
+  }
+  .font-body-lg {
+    font-family: 'Noto Sans', 'Noto Sans Devanagari', sans-serif;
+    font-size: 18px;
+    line-height: 28px;
+    font-weight: 500;
+  }
+}
+
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Custom scrollbar hiding for clean app feel */
+::-webkit-scrollbar {
+  display: none;
+}
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ------------------------------------------------------------------
+   Laptop / desktop layout
+   Screens are authored as a single mobile column. From the lg
+   breakpoint they become a two column dashboard so the whole journey
+   fits a laptop screen without endless scrolling.
+   ------------------------------------------------------------------ */
+@media (min-width: 1024px) {
+  .screen-layout {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 1rem;
+    padding-bottom: 1rem;
+  }
+
+  .screen-layout > * {
+    min-width: 0;
+  }
+
+  /* The voice-first hero and status bars stay full width */
+  .screen-layout > .lg-span-2 {
+    grid-column: 1 / -1;
+  }
+}
