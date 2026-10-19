@@ -151,6 +151,9 @@ export async function authenticate(
 
   const secret = process.env.NEON_AUTH_SECRET;
   if (!secret) {
+    if (process.env.ALLOW_DEV_AUTH === 'true') {
+      return { id: DEV_USER_ID, name: 'Dev ASHA' };
+    }
     throw new AuthError('NEON_AUTH_SECRET is not configured', 'auth_not_configured', 500);
   }
 
