@@ -14,10 +14,29 @@ const env: Record<string, string | undefined> =
   (typeof import.meta !== 'undefined' && (import.meta as { env?: Record<string, string> }).env) ||
   {};
 
-const RAW_BASE = (env.VITE_API_URL ?? 'http://localhost:8787').trim();
+const LOCAL_API = 'http://localhost:8787';
+
+/**
+ * Base URL of the API.
+ *
+ * - `VITE_API_URL` always wins (used for local development).
+ * - On a deployed host (Vercel) the API is served from the same origin, so
+ *   the current origin is used and no configuration is needed.
+ * - On localhost the API runs as a separate process on port 8787.
+ */
+function resolveApiBase(): string {
+  const configured = env.VITE_API_URL?.trim();
+  if (configured) return configured.replace(/\/+$/, '');
+
+  if (typeof window !== 'undefined' && window.location?.hostname) {
+    const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+    if (!isLocal) return window.location.origin;
+  }
+  return LOCAL_API;
+}
 
 /** Base URL of the API, without a trailing slash. */
-export const API_BASE_URL = RAW_BASE.replace(/\/+$/, '');
+export const API_BASE_URL = resolveApiBase();
 
 const TOKEN_STORAGE_KEY = 'aarogya.auth.token';
 
