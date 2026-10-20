@@ -1,14 +1,14 @@
 /**
  * Authentication for the API.
  *
- * Production: the Authorization header carries a JWT issued by Neon Auth
- * (Better Auth). The JWT is signed with HS256 using NEON_AUTH_SECRET and its
- * `sub` claim is the id of the ASHA worker (the same value stored in
- * `asha_workers.id`), which is what `auth.uid()` resolves to in Postgres.
+ * The API issues its own JWTs (HS256, signed with NEON_AUTH_SECRET) so that
+ * the frontend can call `POST /api/auth/signup` and `POST /api/auth/login`
+ * without any external identity provider. The `sub` claim is the id of the
+ * ASHA worker (the same value stored in `asha_workers.id`), which is what
+ * `auth.uid()` resolves to in Postgres and what `ensureWorker` uses.
  *
- * Local development: `ALLOW_DEV_AUTH=true` accepts a plain UUID as the
- * bearer token (or a fixed dev user) so the API can be exercised without a
- * Neon project. Never enable that in production.
+ * When NEON_AUTH_SECRET is missing the server still runs in development mode
+ * (`ALLOW_DEV_AUTH=true`) and accepts a plain worker UUID as the bearer token.
  */
 
 export interface JwtPayload {
@@ -123,6 +123,51 @@ const devAuthEnabled = (): boolean =>
 const DEV_USER_ID =
   process.env.DEV_USER_ID ?? '00000000-0000-0000-0000-000000000001';
 
+/** Signs an HS256 JWT for the given user id. */
+export async function signJwt(
+  userId: string,
+  name?: string,
+  email?: string,
+  expiresInSeconds = 30 * 24 * 60 * 60
+): Promise<string> {
+  const secret = process.env.NEON_AUTH_SECRET;
+  if (!secret) {
+    // In dev mode a plain UUID is acceptable as the bearer token.
+    if (devAuthEnabled()) return userId;
+    throw new AuthError('NEON_AUTH_SECRET is not configured', 'auth_not_configured', 500);
+  }
+
+  const header = toBase64Url(
+    new TextEncoder().encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }))
+  );
+  const now = Math.floor(Date.now() / 1000);
+  const payload = toBase64Url(
+    new TextEncoder().encode(
+      JSON.stringify({
+        sub: userId,
+        name,
+        email,
+        iat: now,
+        exp: now + expiresInSeconds,
+      })
+    )
+  );
+
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign']
+  );
+  const signature = await crypto.subtle.sign(
+    'HMAC',
+    key,
+    new TextEncoder().encode(`${header}.${payload}`)
+  );
+  return `${header}.${payload}.${toBase64Url(signature)}`;
+}
+
 /** Extracts and validates the caller from the Authorization header. */
 export async function authenticate(
   authorization: string | null | undefined
@@ -151,9 +196,6 @@ export async function authenticate(
 
   const secret = process.env.NEON_AUTH_SECRET;
   if (!secret) {
-    if (process.env.ALLOW_DEV_AUTH === 'true') {
-      return { id: DEV_USER_ID, name: 'Dev ASHA' };
-    }
     throw new AuthError('NEON_AUTH_SECRET is not configured', 'auth_not_configured', 500);
   }
 

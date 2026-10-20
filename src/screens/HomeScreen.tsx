@@ -1,6 +1,6 @@
 import { useTranslate } from '../i18n/LanguageContext';
 import React, { useState } from 'react';
-import { Screen, HomeVisitTask } from '../types';
+import { Patient, Screen, Symptom } from '../types';
 import { playSpokenText, stopSpokenText } from '../utils/speech';
 
 interface HomeScreenProps {
@@ -9,7 +9,7 @@ interface HomeScreenProps {
   onToggleOnline: () => void;
   onOpenHomeVisits: () => void;
   unsyncedCount: number;
-  homeVisits: HomeVisitTask[];
+  patients: Patient[];
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -18,11 +18,18 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onToggleOnline,
   onOpenHomeVisits,
   unsyncedCount,
-  homeVisits
+  patients
 }) => {
   const tr = useTranslate();
   const [isPlayingTip, setIsPlayingTip] = useState(false);
-  const pendingVisitsCount = homeVisits.filter((v) => !v.completed).length;
+
+  // Compute task counts from patient data
+  const pendingVisitsCount = patients.filter(
+    (p) => p.triageLevel === 1 || p.triageLevel === 2
+  ).length;
+  const unsyncedPrescriptionsCount = patients.filter(
+    (p) => !p.isSynced
+  ).length;
 
   const handleToggleTipAudio = () => {
     if (isPlayingTip) {
@@ -42,7 +49,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   return tr(
     <div className="flex flex-col w-full gap-4 pb-28 screen-layout">
       {/* Offline/Online Persistent Reassurance Pill Bar */}
-      <div className="lg-span-2 flex items-center justify-between bg-white px-4 py-2.5 rounded-xl shadow-sm border border-[#e6eeff]/60">
+      <div className="flex items-center justify-between bg-white px-4 py-2.5 rounded-xl shadow-sm border border-[#e6eeff]/60">
         <div className="flex items-center gap-2">
           <span
             className={`w-3 h-3 rounded-full animate-pulse ${
@@ -98,7 +105,9 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <span className="material-symbols-outlined text-[18px] text-[#9c4500]">
               schedule
             </span>
-            <span className="font-label-sm text-[13px] font-bold">४ बाकी</span>
+            <span className="font-label-sm text-[13px] font-bold">
+              ${unsyncedPrescriptionsCount} पर्चे सिंक होने बाकी
+            </span>
           </div>
         </div>
 
@@ -109,7 +118,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
               आज का लक्ष्य (Daily Goal)
             </span>
             <span className="font-label-sm text-[12px] font-semibold text-[#9c4500]">
-              ६ में से २ पूर्ण (2/6 Done)
+              {pendingVisitsCount} में से ${Math.min(pendingVisitsCount + 2, 6)} पूर्ण
+              (${pendingVisitsCount + 2}/6 Done)
             </span>
           </div>
           <div className="w-full h-2.5 bg-[#dee9fc] rounded-full overflow-hidden">
@@ -118,7 +128,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
         </div>
       </div>
 
-      {/* 2. Today's Tasks Strip (आज के मुख्य कार्य) */}
+      {/* 2. Today's Tasks Strip */}
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-1.5">
@@ -133,7 +143,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </span>
           </div>
           <span className="bg-[#ffdad6] text-[#93000a] font-label-sm text-[12px] font-bold px-2 py-0.5 rounded-full">
-            ३ ज़रूरी
+            {pendingVisitsCount > 0 ? pendingVisitsCount : '०'} ज़रूरी
           </span>
         </div>
 
@@ -206,7 +216,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </div>
             <div className="flex flex-col min-w-0">
               <span className="font-headline-sm text-[15px] leading-tight text-[#121c2a] font-semibold truncate">
-                {unsyncedCount > 0 ? `${unsyncedCount} पर्चे सिंक होने बाकी` : 'सभी पर्चे सिंक हैं'}
+                {unsyncedPrescriptionsCount > 0 ? `${unsyncedPrescriptionsCount} पर्चे सिंक होने बाकी` : 'सभी पर्चे सिंक हैं'}
               </span>
               <span className="font-label-sm text-[12px] text-[#574238] truncate">
                 स्थानीय डेटा • ऑफ़लाइन सहेजा गया
@@ -214,7 +224,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             </div>
           </div>
           <button
-            onClick={() => onNavigate('sync')}
+            onClick={() => onNavigate('scan')}
             className="flex-shrink-0 min-h-[48px] min-w-[72px] px-3 py-2 bg-[#e8762b] text-white rounded-lg font-headline-sm text-[14px] flex items-center justify-center gap-1 active:scale-95 transition-transform shadow-sm hover:bg-[#9c4500]"
             type="button"
           >
@@ -234,7 +244,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             onNavigate('registration');
           }
         }}
-        className="lg-span-2 relative overflow-hidden bg-[#e8762b] text-white rounded-2xl p-4 shadow-md min-h-[170px] flex flex-col justify-between active:scale-[0.99] transition-transform cursor-pointer group hover:shadow-lg"
+        className="relative overflow-hidden bg-[#e8762b] text-white rounded-2xl p-4 shadow-md min-h-[170px] flex flex-col justify-between active:scale-[0.99] transition-transform cursor-pointer group hover:shadow-lg"
       >
         {/* Decorative ripple background circles */}
         <div className="absolute -right-10 -top-10 w-44 h-44 rounded-full bg-white/10 pointer-events-none"></div>
@@ -244,13 +254,11 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <div className="inline-flex items-center gap-1.5 bg-white/20 backdrop-blur-sm px-3 py-1 rounded-full text-white">
             <span className="material-symbols-outlined text-[16px] animate-pulse">mic</span>
             <span className="font-label-sm text-[12px] font-bold tracking-wider uppercase">
-              आवाज़ से काम करें • VOICE FIRST
+              आवाज़ से काम करें • Voice First
             </span>
           </div>
           <div className="w-7 h-7 rounded-full bg-white/20 flex items-center justify-center">
-            <span className="material-symbols-outlined text-[18px] text-white">
-              record_voice_over
-            </span>
+            <span className="material-symbols-outlined text-[18px] text-white">record_voice_over</span>
           </div>
         </div>
 
@@ -265,7 +273,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
             <div className="flex items-center gap-1 text-white/95 mt-2 bg-black/15 w-fit px-2.5 py-1 rounded-lg">
               <span className="text-sm">👉</span>
               <span className="font-headline-sm text-[13px] font-bold">
-                बोलकर शुरू करें (Tap &amp; Speak)
+                बोलकर शुरू करें (Tap & Speak)
               </span>
             </div>
           </div>

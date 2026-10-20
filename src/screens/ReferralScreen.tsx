@@ -2,6 +2,10 @@ import { useTranslate } from '../i18n/LanguageContext';
 import React, { useState } from 'react';
 import { Patient } from '../types';
 import { playSpokenText, stopSpokenText } from '../utils/speech';
+import {
+  postTriage,
+  type TriageResponse,
+} from '../lib/api';
 
 interface ReferralScreenProps {
   patient: Patient;
@@ -25,13 +29,28 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
   const [isAudioPlaying, setIsAudioPlaying] = useState(false);
   const [isRationaleOpen, setIsRationaleOpen] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [triageResult, setTriageResult] = useState<TriageResponse | null>(null);
+  const [isLoadingTriage, setIsLoadingTriage] = useState(false);
 
-  const spokenAdviceText =
-    selectedTier === 1
-      ? 'कमला देवी जी, आपका बुखार सामान्य वायरल लगता है। घर पर खूब पानी और ओआरएस पिएं, आराम करें और पेरासिटामोल लें।'
-      : selectedTier === 2
-      ? 'कमला देवी जी, 3 दिन से 102 डिग्री बुखार और शरीर पर लाल दाने होने के कारण आज ही रामपुर प्राथमिक स्वास्थ्य केंद्र जाकर डॉ. राजेश से खून की जांच करवाएं।'
-      : 'कमला देवी जी, यह गंभीर आपातकालीन स्थिति है। तत्काल 108 एम्बुलेंस बुलाकर जिला अस्पताल के इमरजेंसी वार्ड में जाएं।';
+  const spokenAdviceText = triageResult?.triage_advice?.headline_hi || '';
+
+  const handleTriage = async () => {
+    setIsLoadingTriage(true);
+    try {
+      const result = await postTriage({
+        symptoms: patient.symptoms?.map(s => s.nameHi).filter(Boolean),
+        raw_transcript: patient.symptoms?.[0]?.nameHi
+      });
+      setTriageResult(result);
+      setSelectedTier(
+        result.triage_result === 'home_care' ? 1 : result.triage_result === 'visit_phc' ? 2 : 3
+      );
+    } catch {
+      // Fallback to default based on selected tier
+    } finally {
+      setIsLoadingTriage(false);
+    }
+  };
 
   const handleToggleAudio = () => {
     if (isAudioPlaying) {
@@ -44,7 +63,7 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
         () => setIsAudioPlaying(true),
         () => setIsAudioPlaying(false)
       );
-      showToast('ऑडियो चल रहा है: "कमला देवी जी को PHC ले जाएं..."');
+      showToast('ऑडियो चल रहा है');
     }
   };
 
@@ -58,7 +77,13 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
     }, 1200);
   };
 
-  return tr(
+  const tierLabels = {
+    1: { hi: 'स्तर 1: सामान्य', en: 'Level 1: Home Care', color: '#006d38' },
+    2: { hi: 'स्तर 2: रेफरल', en: 'Level 2: Referral', color: '#e8762b' },
+    3: { hi: 'स्तर 3: आपात', en: 'Level 3: Emergency', color: '#ba1a1a' }
+  };
+
+  return (
     <div className="flex flex-col w-full pb-10 screen-layout">
       {/* Offline Sync Confirmation Sticky Sub-bar */}
       <div className="lg-span-2 w-full bg-[#8ff3f4]/30 px-4 py-2 rounded-xl flex items-center justify-between mb-3 shadow-sm border border-[#8ff3f4]/40">
@@ -77,7 +102,7 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
           <div className="relative w-16 h-16 rounded-xl overflow-hidden shrink-0 shadow-inner bg-[#dee9fc]">
             <img
               className="w-full h-full object-cover"
-              alt="Close-up portrait of Kamla Devi, a 42-year-old Indian rural woman wrapped in a warm saree"
+              alt="Close-up portrait of patient"
               referrerPolicy="no-referrer"
               src={
                 patient.photoUrl ||
@@ -106,18 +131,15 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
 
         {/* Symptoms Chips */}
         <div className="mt-3 pt-1 flex flex-wrap gap-1.5">
-          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#ffdad6] text-[#93000a] font-label-sm text-[12px] font-semibold">
-            <span className="material-symbols-outlined text-[16px]">device_thermostat</span>
-            बुखार (102°F)
-          </span>
-          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#e6eeff] text-[#121c2a] font-label-sm text-[12px]">
-            <span className="material-symbols-outlined text-[16px]">air</span>
-            खांसी (Cough)
-          </span>
-          <span className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#ffdbca] text-[#773300] font-label-sm text-[12px] font-semibold">
-            <span className="material-symbols-outlined text-[16px]">grain</span>
-            लाल दाने (Skin Rash)
-          </span>
+          {patient.symptoms.map((symptom, idx) => (
+            <span
+              key={symptom.id}
+              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#ffdad6] text-[#93000a] font-label-sm text-[12px] font-semibold"
+            >
+              <span className="material-symbols-outlined text-[16px]">device_thermostat</span>
+              {symptom.nameHi}
+            </span>
+          ))}
         </div>
       </section>
 
@@ -143,9 +165,9 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
           {/* Tier 1: Green */}
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               setSelectedTier(1);
-              showToast('स्तर 1: सामान्य गृह देखभाल दिशानिर्देश');
+              await handleTriage();
             }}
             className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-center transition-all ${
               selectedTier === 1
@@ -160,12 +182,12 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
             </span>
           </button>
 
-          {/* Tier 2: Amber (Default) */}
+          {/* Tier 2: Amber */}
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               setSelectedTier(2);
-              showToast('स्तर 2: प्राथमिक स्वास्थ्य केंद्र रेफरल सक्रिय');
+              await handleTriage();
             }}
             className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-center transition-all ${
               selectedTier === 2
@@ -183,9 +205,9 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
           {/* Tier 3: Red */}
           <button
             type="button"
-            onClick={() => {
+            onClick={async () => {
               setSelectedTier(3);
-              showToast('स्तर 3: 108 एम्बुलेंस आपातकालीन कॉल मोड');
+              await handleTriage();
             }}
             className={`flex flex-col items-center justify-center py-2 px-1 rounded-lg text-center transition-all ${
               selectedTier === 3
@@ -202,30 +224,21 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
         </div>
       </div>
 
-      {/* 2. TRIAGE RECOMMENDATION CARD (Primary Focus) */}
+      {/* 2. TRIAGE RECOMMENDATION CARD */}
       <section className="bg-white rounded-xl shadow-md p-4 mb-4 relative overflow-hidden border border-[#e6eeff]/60">
-        {/* Accent Ribbon */}
-        <div
-          className={`absolute top-0 left-0 bottom-0 w-2.5 ${
-            selectedTier === 1
-              ? 'bg-[#006d38]'
-              : selectedTier === 2
-              ? 'bg-[#e8762b]'
-              : 'bg-[#ba1a1a]'
-          }`}
-        ></div>
+        <div className="absolute top-0 left-0 bottom-0 w-2.5">
+          <div className={`h-full ${triageResult?.triage_result === 'home_care' ? 'bg-[#006d38]' : selectedTier === 2 ? 'bg-[#e8762b]' : 'bg-[#ba1a1a]'}`} />
+        </div>
 
         <div className="pl-2">
           {/* Badge */}
-          <div
-            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-1 ${
-              selectedTier === 1
-                ? 'bg-[#8df9ac]/40 text-[#003619]'
-                : selectedTier === 2
+          <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full mb-1 ${
+            selectedTier === 1
+              ? 'bg-[#8df9ac]/40 text-[#003619]'
+              : selectedTier === 2
                 ? 'bg-[#ffdbca] text-[#773300]'
                 : 'bg-[#ffdad6] text-[#93000a]'
-            }`}
-          >
+          }`}>
             <span
               className="material-symbols-outlined text-[16px]"
               style={{ fontVariationSettings: "'FILL' 1" }}
@@ -233,26 +246,22 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
               {selectedTier === 3 ? 'emergency' : 'warning'}
             </span>
             <span className="font-label-sm text-[12px] font-bold">
-              {selectedTier === 1
-                ? 'स्तर 1: सामान्य गृह देखभाल'
-                : selectedTier === 2
-                ? 'स्तर 2: प्राथमिक स्वास्थ्य केंद्र (PHC) रेफरल'
-                : 'स्तर 3: तत्काल 108 एम्बुलेंस आपातकाल'}
+              {triageResult?.triage_advice?.headline_hi ||
+                (selectedTier === 1
+                  ? 'स्तर 1: सामान्य गृह देखभाल'
+                  : selectedTier === 2
+                  ? 'स्तर 2: प्राथमिक स्वास्थ्य केंद्र (PHC) रेफरल'
+                  : 'स्तर 3: तत्काल 108 एम्बुलेंस आपातकाल')}
             </span>
           </div>
 
           {/* Recommendation Headline */}
           <h3 className="font-headline-md text-[20px] text-[#121c2a] mt-1 font-bold leading-snug">
-            {patient.triageAdvice?.headline_hi ??
-
+            {triageResult?.triage_advice?.headline_hi ??
               (selectedTier === 1
-
                 ? 'घर पर आराम एवं तरल पदार्थ दें'
-
                 : selectedTier === 2
-
                 ? '24 घंटे के अंदर PHC ले जाएँ'
-
                 : 'तत्काल 108 एम्बुलेंस बुलाएं')}
           </h3>
           <p
@@ -264,16 +273,11 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
                 : 'text-[#ba1a1a]'
             }`}
           >
-            {patient.triageAdvice?.headline_en ??
-
+            {triageResult?.triage_advice?.headline_en ??
               (selectedTier === 1
-
                 ? 'Hydration and Home Recovery within 48 Hours'
-
                 : selectedTier === 2
-
                 ? 'Visit Community Health Centre within 24 Hours'
-
                 : 'Immediate Critical Ambulance Referral')}
           </p>
 
@@ -284,9 +288,7 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
                 aria-label="Play spoken advice"
                 onClick={handleToggleAudio}
                 className={`w-12 h-12 rounded-full flex items-center justify-center shadow-md active:scale-95 transition-all ${
-                  isAudioPlaying
-                    ? 'bg-[#00696b] text-white animate-pulse'
-                    : 'bg-[#e8762b] text-white'
+                  isAudioPlaying ? 'bg-[#00696b] text-white animate-pulse' : 'bg-[#e8762b] text-white'
                 }`}
                 type="button"
               >
@@ -315,11 +317,12 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
                 stethoscope
               </span>
               <p className="font-body-md text-[14px] text-[#121c2a] leading-relaxed font-medium">
-                {selectedTier === 1
-                  ? 'मरीज़ को दिन में 3-4 बार ओआरएस घोल पिलाएं, सादा सुपाच्य भोजन दें और पर्याप्त नींद लें।'
-                  : selectedTier === 2
-                  ? 'तेज़ बुखार के साथ त्वचा पर दाने संक्रामक रोग का संकेत हो सकते हैं। आज ही नजदीकी सरकारी डॉक्टर से जांच करवाएं।'
-                  : 'साँस लेने में गंभीर रुकावट या दौरे पड़ने का खतरा है। मरीज़ को सीधा लिटाएं और बिना देर किए अस्पताल पहुंचाएं।'}
+                {triageResult?.triage_advice?.reasoning ||
+                  (selectedTier === 1
+                    ? 'मरीज़ को दिन में 3-4 बार ओआरएस घोल पिलाएं, सादा सुपाच्य भोजन दें और पर्याप्त नींद लें।'
+                    : selectedTier === 2
+                    ? 'तेज़ बुखार के साथ त्वचा पर दाने संक्रामक रोग का संकेत हो सकते हैं। आज ही नजदीकी सरकारी डॉक्टर से जांच करवाएं।'
+                    : 'साँस लेने में गंभीर रुकावट या दौरे पड़ने का खतरा है। मरीज़ को सीधा लिटाएं और बिना देर किए अस्पताल पहुंचाएं।')}
               </p>
             </div>
             <p className="font-label-sm text-[11.5px] text-[#574238] pl-7">
@@ -351,8 +354,8 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
             </div>
             <a
               aria-label="Call Hospital"
-              href="tel:108"
               className="h-10 px-3 bg-[#00696b] text-white rounded-lg flex items-center justify-center shrink-0 shadow-sm font-label-sm text-[12px] font-semibold active:scale-95 transition-transform hover:bg-[#004f51]"
+              href="tel:108"
             >
               <span className="material-symbols-outlined text-[17px] mr-1">call</span>
               कॉल
@@ -381,7 +384,7 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
           href="tel:108"
         >
           <span className="material-symbols-outlined text-[18px]">call</span>
-          <span>108</span>
+          108
         </a>
       </div>
 
@@ -480,7 +483,7 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
 
       {/* 4. Action Buttons Row */}
       <section className="flex flex-col gap-2 mb-4">
-        {/* Primary WhatsApp Share Button (56px touch target mandate) */}
+        {/* Primary WhatsApp Share Button */}
         <button
           onClick={onOpenWhatsAppModal}
           className="w-full min-h-[56px] rounded-xl bg-[#006d38] text-white flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform hover:bg-[#005229]"
@@ -547,12 +550,10 @@ export const ReferralScreen: React.FC<ReferralScreenProps> = ({
               वैधानिक अस्वीकरण • Statutory Notice
             </h5>
             <p className="font-body-md text-[12px] text-[#121c2a] leading-snug mt-1">
-              ⚠️ यह एआई सलाह किसी प्रमाणित डॉक्टर की जगह नहीं लेती। यह केवल प्राथमिक ट्राइएज एवं सहायता
-              हेतु है। मरीज़ की हालत बिगड़ने पर तुरंत 108 बुलाएं अथवा नजदीकी अस्पताल ले जाएं।
+              ⚠️ यह एआई सलाह किसी प्रमाणित डॉक्टर की जगह नहीं लेती। यह केवल प्राथमिक ट्राइएज एवं सहायता हेतु है। मरीज़ की हालत बिगड़ने पर तुरंत 108 बुलाएं अथवा नजदीकी अस्पताल ले जाएं।
             </p>
             <p className="font-label-sm text-[10.5px] text-[#574238] mt-1">
-              This AI-assisted triage does not constitute medical diagnosis. Always consult
-              certified healthcare personnel for definitive clinical diagnosis and treatment.
+              This AI-assisted triage does not constitute medical diagnosis. Always consult certified healthcare personnel for definitive clinical diagnosis and treatment.
             </p>
           </div>
         </div>

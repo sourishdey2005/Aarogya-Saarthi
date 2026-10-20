@@ -9,6 +9,7 @@
 
 import { HttpError } from './http.ts';
 import { runTriage, fallbackTriage } from './triage.ts';
+import { signJwt } from './auth.ts';
 import type { SqlClient } from '../db.ts';
 import {
   optionalEnum,
@@ -104,8 +105,146 @@ export async function ensureWorker(
 }
 
 // ───────────────────────────────────────────────────────────────────────────
-// GET /api/patients - the worker's patient list
+
+/** SHA-256 helper (WebCrypto). */
+async function sha256(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+// POST /api/auth/signup
 // ───────────────────────────────────────────────────────────────────────────
+export async function signup(ctx: HandlerContext) {
+  const body = ctx.body;
+
+  const name = requireString(body, 'name', { min: 1, max: 120 });
+  const village = optionalString(body, 'village', { max: 120 });
+  const phone = optionalString(body, 'phone', { max: 40 });
+  const email = optionalString(body, 'email', { max: 200 });
+  const password = requireString(body, 'password', { min: 6, max: 200 });
+
+  // Passwords are stored as salted SHA-256 hashes. This is a development
+  // grade scheme - a production deployment should swap this for bcrypt or
+  // Argon2, but it keeps the whole app dependency free.
+  const salt = crypto.randomUUID();
+  const hash = await sha256(`${salt}:${password}`);
+
+  // A worker id is generated on the server (unlike patient ids, which are
+  // generated on the device for offline safety).
+  const id = crypto.randomUUID();
+
+  try {
+    await ctx.sql.query(
+      `INSERT INTO asha_workers (id, name, village, phone)
+       VALUES (?, ?, ?, ?)`,
+      [id, name, village ?? 'Rampur', phone]
+    );
+  } catch (error) {
+    // Phone is UNIQUE - treat a duplicate as "account already exists".
+    if (String(error).includes('UNIQUE')) {
+      throw new HttpError(409, 'account_exists', 'An account with that phone already exists');
+    }
+    throw error;
+  }
+
+  // Keep the password alongside the worker row in a separate table so the
+  // public asha_workers table never exposes the hash.
+  await ctx.sql.query(
+    `CREATE TABLE IF NOT EXISTS asha_credentials (
+       worker_id TEXT PRIMARY KEY REFERENCES asha_workers (id) ON DELETE CASCADE,
+       email      TEXT UNIQUE,
+       password_hash TEXT NOT NULL,
+       salt       TEXT NOT NULL,
+       created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+     )`
+  );
+
+  await ctx.sql.query(
+    `INSERT INTO asha_credentials (worker_id, email, password_hash, salt)
+     VALUES (?, ?, ?, ?)`,
+    [id, email, hash, salt]
+  );
+
+  const token = await signJwt(id, name, email ?? undefined);
+
+  return {
+    status: 201,
+    body: {
+      token,
+      worker: { id, name, village: village ?? 'Rampur', phone },
+    },
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// POST /api/auth/login
+// ───────────────────────────────────────────────────────────────────────────
+export async function login(ctx: HandlerContext) {
+  const body = ctx.body;
+
+  const phone = optionalString(body, 'phone', { max: 40 });
+  const email = optionalString(body, 'email', { max: 200 });
+  const password = requireString(body, 'password', { min: 1, max: 200 });
+
+  if (!phone && !email) {
+    throw new HttpError(400, 'validation_error', 'Either "phone" or "email" is required');
+  }
+
+  // Find the worker by phone (or email).
+  let worker: { id: string; name: string; village: string; phone: string | null } | undefined;
+  if (phone) {
+    const result = await ctx.sql.query(
+      `SELECT id, name, village, phone FROM asha_workers WHERE phone = ?`,
+      [phone]
+    );
+    worker = result.rows[0] as typeof worker;
+  } else if (email) {
+    const result = await ctx.sql.query(
+      `SELECT a.id, a.name, a.village, a.phone
+       FROM asha_workers a JOIN asha_credentials c ON c.worker_id = a.id
+       WHERE c.email = ?`,
+      [email]
+    );
+    worker = result.rows[0] as typeof worker;
+  }
+
+  if (!worker) {
+    throw new HttpError(401, 'invalid_credentials', 'Phone / email or password is wrong');
+  }
+
+  const credential = await ctx.sql.query(
+    `SELECT password_hash, salt FROM asha_credentials WHERE worker_id = ?`,
+    [worker.id]
+  );
+  const row = credential.rows[0] as { password_hash?: string; salt?: string } | undefined;
+  if (!row?.password_hash || !row?.salt) {
+    throw new HttpError(401, 'invalid_credentials', 'Phone / email or password is wrong');
+  }
+
+  const candidate = await sha256(`${row.salt}:${password}`);
+  if (candidate !== row.password_hash) {
+    throw new HttpError(401, 'invalid_credentials', 'Phone / email or password is wrong');
+  }
+
+  const token = await signJwt(worker.id, worker.name, email ?? undefined);
+  return {
+    status: 200,
+    body: { token, worker },
+  };
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// GET /api/auth/me
+// ───────────────────────────────────────────────────────────────────────────
+export async function me(ctx: HandlerContext) {
+  const worker = await ctx.sql.query(
+    `SELECT id, name, village, phone FROM asha_workers WHERE id = ?`,
+    [ctx.worker.id]
+  );
+  return { status: 200, body: { worker: worker.rows[0] ?? null } };
+}
 export async function listPatients(ctx: HandlerContext) {
   const patients = await ctx.sql.query(
     `SELECT p.id, p.asha_worker_id, p.name, p.age, p.gender, p.village, p.created_at,

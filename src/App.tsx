@@ -9,6 +9,7 @@ import {
   getSyncPending,
   listPatients,
   newClientRecordId,
+  setAuthToken,
   type TriageAdvice,
   type TriageResult,
 } from './lib/api';
@@ -25,6 +26,7 @@ import { RegistrationScreen } from './screens/RegistrationScreen';
 import { ScanScreen } from './screens/ScanScreen';
 import { ReferralScreen } from './screens/ReferralScreen';
 import { PatientsScreen } from './screens/PatientsScreen';
+import { AuthScreen } from './screens/AuthScreen';
 import { SyncScreen } from './screens/SyncScreen';
 import { Sidebar } from './components/Sidebar';
 import { useLang } from './i18n/LanguageContext';
@@ -90,6 +92,9 @@ export default function App() {
   }, [currentScreen, lang]);
 
   // Modals state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(
+    () => Boolean(getAuthToken())
+  );
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isHomeVisitsOpen, setIsHomeVisitsOpen] = useState(false);
   const [isNoteOpen, setIsNoteOpen] = useState(false);
@@ -337,6 +342,11 @@ export default function App() {
     );
   };
 
+  const handleSignOut = () => {
+    setAuthToken(null);
+    setIsAuthenticated(false);
+  };
+
   const handleSaveNote = (note: string) => {
     if (selectedPatient) {
       setPatients((prev) =>
@@ -354,17 +364,28 @@ export default function App() {
     }
   };
 
+  if (!isAuthenticated) {
+    return (
+      <AuthScreen
+        onBack={() => {}}
+        onSignedIn={() => setIsAuthenticated(true)}
+        showToast={showToast}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-[#121c2a] flex flex-col lg:flex-row font-sans selection:bg-[#e8762b] selection:text-white">
       {/* Desktop navigation rail (laptop / desktop viewports) */}
-      <Sidebar
-        currentScreen={currentScreen}
-        onNavigate={setCurrentScreen}
-        onOpenProfile={() => setIsProfileOpen(true)}
-        isOnline={isOnline}
-        onToggleOnline={handleToggleOnline}
-        unsyncedCount={totalUnsynced}
-      />
+          <Sidebar
+            currentScreen={currentScreen}
+            onNavigate={setCurrentScreen}
+            onOpenProfile={() => setIsProfileOpen(true)}
+            isOnline={isOnline}
+            onToggleOnline={handleToggleOnline}
+            unsyncedCount={totalUnsynced}
+            onSignOut={handleSignOut}
+          />
 
       <div className="flex-1 min-w-0 flex flex-col">
         {/* Fixed Header */}
@@ -384,7 +405,7 @@ export default function App() {
               onToggleOnline={handleToggleOnline}
               onOpenHomeVisits={() => setIsHomeVisitsOpen(true)}
               unsyncedCount={totalUnsynced}
-              homeVisits={homeVisits}
+              patients={patients}
             />
           )}
 

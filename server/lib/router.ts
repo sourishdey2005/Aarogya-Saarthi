@@ -24,7 +24,10 @@ import {
   getPrescriptionImage,
   getSyncPending,
   listPatients,
+  login,
+  me,
   postTriage,
+  signup,
   type HandlerContext,
 } from './handlers.ts';
 
@@ -61,8 +64,11 @@ const route = (
 
 export const ROUTES: RouteDefinition[] = [
   route('GET', '/api/health', getHealth, { public: true }),
-  route('POST', '/api/patients', createPatient),
+  route('POST', '/api/auth/signup', signup, { public: true }),
+  route('POST', '/api/auth/login', login, { public: true }),
+  route('GET', '/api/auth/me', me),
   route('GET', '/api/patients', listPatients),
+  route('POST', '/api/patients', createPatient),
   route('GET', '/api/patients/:id/timeline', getPatientTimeline),
   route('POST', '/api/symptom-logs', createSymptomLog),
   route('POST', '/api/prescriptions', createPrescription),

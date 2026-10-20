@@ -7,6 +7,7 @@ interface SidebarProps {
   currentScreen: Screen;
   onNavigate: (screen: Screen) => void;
   onOpenProfile: () => void;
+  onSignOut: () => void;
   isOnline: boolean;
   onToggleOnline: () => void;
   unsyncedCount: number;
@@ -32,6 +33,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   currentScreen,
   onNavigate,
   onOpenProfile,
+  onSignOut,
   isOnline,
   onToggleOnline,
   unsyncedCount,
@@ -122,6 +124,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span className="font-label-sm text-[11px] opacity-80">
               {isOnline ? 'Online' : 'Offline'}
             </span>
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={onSignOut}
+          className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl bg-[#eff4ff] hover:bg-[#dee9fc] transition-all text-left"
+        >
+          <span className="material-symbols-outlined text-[20px] text-[#9c4500]">logout</span>
+          <span className="flex flex-col leading-tight">
+            <span className="font-label-md text-[13px] font-bold text-[#121c2a]">
+              लॉग आउट (Sign out)
+            </span>
+            <span className="font-label-sm text-[11px] text-[#574238]">Sign out of this device</span>
           </span>
         </button>
 
