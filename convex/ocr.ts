@@ -42,12 +42,14 @@ Return ONLY a JSON object with this shape:
     }
   ],
   "ocr_text": "verbatim text from the slip, one line per item",
-  "ocr_confidence": 0
+  "ocr_confidence": 85
 }
 
 RULES:
 - Never invent, translate or substitute a medicine. Copy it as written.
 - Use an empty string for any field that is not readable.
+- Set ocr_confidence to your own estimate (0-100) of how much of the slip you
+  could read; do not copy the example value.
 - Include every medicine line you can read (up to 20).
 - If the photo is not a prescription or is unreadable, return
   {"medicines": [], "ocr_text": "", "ocr_confidence": 0}.
@@ -137,6 +139,13 @@ export const extractPrescription = action({
       );
     }
 
+    const reportedConfidence = asConfidence(parsed.ocr_confidence, 0);
+    const estimatedConfidence = medicines.every(
+      (item) => item.frequency || item.instructions
+    )
+      ? 85
+      : 65;
+
     return {
       medicines,
       ocr_text:
@@ -144,7 +153,7 @@ export const extractPrescription = action({
         medicines
           .map((item) => [item.name, item.strength, item.frequency, item.duration].filter(Boolean).join(" - "))
           .join("\n"),
-      ocr_confidence: asConfidence(parsed.ocr_confidence, 70),
+      ocr_confidence: reportedConfidence > 0 ? reportedConfidence : estimatedConfidence,
       source: `nvidia-nim:${config.model}`,
     };
   },

@@ -17,7 +17,7 @@ export interface ChatMessage {
 
 export const DEFAULT_NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
 export const DEFAULT_NVIDIA_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b";
-export const DEFAULT_NVIDIA_VISION_MODEL = "meta/llama-3.2-90b-vision-instruct";
+export const DEFAULT_NVIDIA_VISION_MODEL = "nvidia/nemotron-3.5-super-vl-120b-a12b";
 
 function readEnv(name: string): string | undefined {
   const value = process.env[name];
