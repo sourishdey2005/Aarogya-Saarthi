@@ -18,8 +18,19 @@ async function fetchConvexUrl(): Promise<string> {
   convexUrlPromise = (async () => {
     try {
       const res = await fetch("/api/convex-url");
-      if (!res.ok) throw new Error(`Failed to fetch Convex URL: ${res.status}`);
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Failed to fetch Convex URL: ${res.status} - ${text.slice(0, 200)}`);
+      }
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const text = await res.text();
+        throw new Error(`Expected JSON from /api/convex-url, got ${contentType}: ${text.slice(0, 200)}`);
+      }
       const data = await res.json();
+      if (!data.url) {
+        throw new Error(`Invalid response from /api/convex-url: ${JSON.stringify(data)}`);
+      }
       const url = data.url.replace(/\/+$/, "");
       convexUrlCache = url;
       return url;
@@ -39,7 +50,16 @@ export async function resolveApiBase(): Promise<string> {
   if (env.CONVEX_URL) return env.CONVEX_URL.replace(/\/+$/, "");
 
   // Fallback to server-provided URL
-  return fetchConvexUrl();
+  try {
+    return await fetchConvexUrl();
+  } catch (error) {
+    console.error("[api] Failed to resolve Convex URL:", error);
+    // Fallback for local development
+    if (typeof window !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname)) {
+      return "http://127.0.0.1:3210";
+    }
+    throw new Error(`Cannot connect to backend: ${error instanceof Error ? error.message : String(error)}`);
+  }
 }
 
 const TOKEN_STORAGE_KEY = "aarogya.auth.token";
