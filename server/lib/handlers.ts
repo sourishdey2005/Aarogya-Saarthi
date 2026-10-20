@@ -659,6 +659,8 @@ export async function getHealth(ctx: HandlerContext) {
       database_engine: 'sqlite',
       tables,
       nvidia_configured: Boolean(process.env.NVIDIA_API_KEY),
+      ai_provider: 'nvidia-nim',
+      ai_model: process.env.NVIDIA_MODEL || 'nvidia/nemotron-3.5-lightning-30b-a3b',
       time: new Date().toISOString(),
     },
   };

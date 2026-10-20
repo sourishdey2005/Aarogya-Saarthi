@@ -13,6 +13,7 @@
     "preview": "vite preview --port=4173 --strictPort",
     "clean": "rm -rf dist server.js",
     "lint": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
+    "env:sync": "node scripts/sync-convex-env.mjs",
     "api:dev": "node --experimental-strip-types server/api.ts",
     "api:start": "node --experimental-strip-types server/api.ts",
     "db:inspect": "node --experimental-strip-types tests/db-inspect.mjs",

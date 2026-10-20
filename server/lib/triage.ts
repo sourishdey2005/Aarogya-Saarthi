@@ -22,8 +22,11 @@ export interface TriageResponse {
   triage_advice: TriageAdvice;
 }
 
-const NVIDIA_BASE_URL = 'https://integrate.api.nvidia.com/v1';
-const NVIDIA_MODEL = 'meta/llama-3.1-8b-instruct';
+const NVIDIA_BASE_URL = process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1';
+const NVIDIA_MODEL = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3.5-lightning-30b-a3b';
+const NVIDIA_MAX_TOKENS = Number(process.env.NVIDIA_MAX_TOKENS || 16384);
+const NVIDIA_REASONING_BUDGET = Number(process.env.NVIDIA_REASONING_BUDGET || 16384);
+const NVIDIA_ENABLE_THINKING = (process.env.NVIDIA_ENABLE_THINKING || 'true') !== 'false';
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour, protects the 40 RPM limit
 
 /** Guideline context (RAG-lite) used to ground the model. */
@@ -142,9 +145,13 @@ export async function runTriage(input: TriageInput): Promise<TriageResponse> {
         authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: process.env.NVIDIA_MODEL || NVIDIA_MODEL,
-        temperature: 0,
-        max_tokens: 32,
+        model: NVIDIA_MODEL,
+        temperature: 1,
+        top_p: 0.95,
+        max_tokens: NVIDIA_MAX_TOKENS,
+        reasoning_budget: NVIDIA_REASONING_BUDGET,
+        chat_template_kwargs: { enable_thinking: NVIDIA_ENABLE_THINKING },
+        stream: false,
         messages: [
           { role: 'system', content: SYSTEM_PROMPT },
           {
@@ -164,9 +171,12 @@ export async function runTriage(input: TriageInput): Promise<TriageResponse> {
     }
 
     const payload = (await response.json()) as {
-      choices?: { message?: { content?: string } }[];
+      choices?: {
+        message?: { content?: string; reasoning_content?: string; reasoning?: string };
+      }[];
     };
-    const raw = payload.choices?.[0]?.message?.content ?? '';
+    const message = payload.choices?.[0]?.message;
+    const raw = message?.content || message?.reasoning_content || message?.reasoning || '';
     const result = parseTriageResult(raw);
     const headlines = buildHeadlines(result);
 
@@ -178,7 +188,7 @@ export async function runTriage(input: TriageInput): Promise<TriageResponse> {
         reasoning:
           'Guideline based triage from WHO IMCI / India NHM community rules. ' +
           'This is not a diagnosis.',
-        source: 'nvidia-nim:' + (process.env.NVIDIA_MODEL || NVIDIA_MODEL),
+        source: 'nvidia-nim:' + NVIDIA_MODEL,
       },
     };
 
