@@ -1,0 +1,126 @@
+import { mutation, query } from "./_generated/server";
+import { v } from "convex/values";
+import { sha256 } from "./helpers";
+
+const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+function generateSessionToken(): string {
+  return crypto.randomUUID();
+}
+
+export const signup = mutation({
+  args: {
+    name: v.string(),
+    village: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    email: v.optional(v.string()),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { name, village, phone, email, password } = args;
+
+    // Check if phone already exists
+    if (phone) {
+      const existing = await ctx.db
+        .query("ashaWorkers")
+        .withIndex("by_phone", (q) => q.eq("phone", phone))
+        .unique();
+      if (existing) {
+        throw new Error("An account with that phone already exists");
+      }
+    }
+
+    // Check if email already exists
+    if (email) {
+      const existing = await ctx.db
+        .query("ashaWorkers")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .unique();
+      if (existing) {
+        throw new Error("An account with that email already exists");
+      }
+    }
+
+    const salt = crypto.randomUUID();
+    const hash = await sha256(`${salt}:${password}`);
+
+    const workerId = await ctx.db.insert("ashaWorkers", {
+      name: name.trim() || "ASHA Worker",
+      village: village?.trim() || "Rampur",
+      phone: phone?.trim() || null,
+      email: email?.trim() || null,
+      passwordHash: hash,
+      passwordSalt: salt,
+      createdAt: Date.now(),
+    });
+
+    const token = generateSessionToken();
+    return { token, workerId, name: name.trim() || "ASHA Worker", village: village?.trim() || "Rampur", phone: phone?.trim() || null };
+  },
+});
+
+export const login = mutation({
+  args: {
+    phone: v.optional(v.string()),
+    email: v.optional(v.string()),
+    password: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const { phone, email, password } = args;
+
+    if (!phone && !email) {
+      throw new Error("Either phone or email is required");
+    }
+
+    let worker;
+    if (phone) {
+      worker = await ctx.db
+        .query("ashaWorkers")
+        .withIndex("by_phone", (q) => q.eq("phone", phone))
+        .unique();
+    } else if (email) {
+      worker = await ctx.db
+        .query("ashaWorkers")
+        .withIndex("by_email", (q) => q.eq("email", email))
+        .unique();
+    }
+
+    if (!worker) {
+      throw new Error("Phone / email or password is wrong");
+    }
+
+    const candidate = await sha256(`${worker.passwordSalt}:${password}`);
+    if (candidate !== worker.passwordHash) {
+      throw new Error("Phone / email or password is wrong");
+    }
+
+    const token = generateSessionToken();
+    return {
+      token,
+      worker: {
+        id: worker._id,
+        name: worker.name,
+        village: worker.village,
+        phone: worker.phone,
+      },
+    };
+  },
+});
+
+export const me = query({
+  args: { token: v.string() },
+  handler: async (ctx, args) => {
+    // In a real app, you'd validate the token against a sessions table
+    // For now, we'll use the token as the worker ID directly (dev mode)
+    const worker = await ctx.db.get(args.token as any);
+    if (!worker) return { worker: null };
+    return {
+      worker: {
+        id: worker._id,
+        name: worker.name,
+        village: worker.village,
+        phone: worker.phone,
+      },
+    };
+  },
+});
