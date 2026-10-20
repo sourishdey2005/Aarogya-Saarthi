@@ -5,6 +5,7 @@ import { useLang , useTranslate} from '../i18n/LanguageContext';
 import {
   postSymptomLog,
   postTriage,
+  type AuthWorker,
   type TriageAdvice,
   type TriageResponse,
 } from '../lib/api';
@@ -15,6 +16,7 @@ interface RegistrationScreenProps {
   ) => Promise<Patient> | void;
   onBack: () => void;
   showToast: (msg: string) => void;
+  worker?: AuthWorker | null;
 }
 
 /**
@@ -37,7 +39,8 @@ function localFallbackTriage(): TriageResponse {
 export const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
   onSavePatientAndContinue,
   onBack,
-  showToast
+  showToast,
+  worker
 }) => {
   const tr = useTranslate();
   const [name, setName] = useState('कमला देवी (Kamla Devi)');
@@ -202,7 +205,8 @@ export const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
               ● ऑफ़लाइन सुरक्षित (Offline Safe)
             </span>
             <span className="font-label-sm text-[11px] text-[#574238] leading-none">
-              सुनीता देवी • रामपुर केंद्र (Ward 4)
+              {worker?.name ?? 'ASHA Worker'}
+              {worker?.village ? ` • ${worker.village} केंद्र` : ''}
             </span>
           </div>
         </div>

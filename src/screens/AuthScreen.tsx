@@ -7,11 +7,11 @@
  */
 import React, { useState } from 'react';
 import { useTranslate } from '../i18n/LanguageContext';
-import { setAuthToken, resolveApiBase } from '../lib/api';
+import { setAuthToken, setStoredWorker, resolveApiBase } from '../lib/api';
 
 interface AuthScreenProps {
   onBack: () => void;
-  onSignedIn: (worker: { id: string; name: string; village?: string }) => void;
+  onSignedIn: (worker: { id: string; name: string; village?: string; phone?: string | null }) => void;
   showToast: (msg: string) => void;
 }
 
@@ -23,7 +23,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onBack, onSignedIn, show
   const [name, setName] = useState('');
   const [village, setVillage] = useState('');
   const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -35,18 +34,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onBack, onSignedIn, show
 
     const baseUrl = resolveApiBase();
     const url = mode === 'signup' ? `${baseUrl}/api/auth/signup` : `${baseUrl}/api/auth/login`;
+    const identifier = phone.trim();
+    const isEmail = identifier.includes('@');
     const body =
       mode === 'signup'
         ? {
             name: name.trim() || 'ASHA Worker',
-            village: village.trim() || 'Rampur',
-            phone: phone.trim() || undefined,
-            email: email.trim() || undefined,
+            village: village.trim() || undefined,
+            phone: isEmail ? undefined : identifier || undefined,
+            email: isEmail ? identifier : undefined,
             password,
           }
         : {
-            phone: phone.trim() || undefined,
-            email: email.trim() || undefined,
+            phone: isEmail ? undefined : identifier || undefined,
+            email: isEmail ? identifier : undefined,
             password,
           };
 
@@ -82,6 +83,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onBack, onSignedIn, show
       }
 
       setAuthToken(data.token);
+      setStoredWorker(data.worker);
       showToast(mode === 'signup' ? 'खाता बना लिया गया ✓ (Account created)' : 'लॉगिन सफल ✓ (Signed in)');
       onSignedIn(data.worker);
     } catch (err) {
@@ -145,7 +147,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onBack, onSignedIn, show
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="सुनीता देवी (Sunita Devi)"
+                  placeholder="अपना पूरा नाम (Your full name)"
                   className="w-full bg-[#eff4ff] px-3.5 py-2.5 rounded-xl text-[14px] text-[#121c2a] border border-[#d9e3f6] focus:outline-none focus:ring-2 focus:ring-[#e8762b] focus:bg-white"
                   required
                 />

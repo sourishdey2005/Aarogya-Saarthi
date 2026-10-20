@@ -1,5 +1,6 @@
 import { useTranslate } from '../i18n/LanguageContext';
 import React from 'react';
+import { workerDisplayId, type AuthWorker } from '../lib/api';
 
 interface AshaProfileModalProps {
   isOpen: boolean;
@@ -8,6 +9,13 @@ interface AshaProfileModalProps {
   onToggleOnline: () => void;
   syncedCount: number;
   unsyncedCount: number;
+  worker?: AuthWorker | null;
+}
+
+function initialsOf(name: string | undefined): string {
+  if (!name) return 'AS';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  return (parts[0]?.[0] ?? 'A').concat(parts[1]?.[0] ?? '').toUpperCase();
 }
 
 export const AshaProfileModal: React.FC<AshaProfileModalProps> = ({
@@ -16,10 +24,13 @@ export const AshaProfileModal: React.FC<AshaProfileModalProps> = ({
   isOnline,
   onToggleOnline,
   syncedCount,
-  unsyncedCount
+  unsyncedCount,
+  worker
 }) => {
   const tr = useTranslate();
   if (!isOpen) return null;
+
+  const village = worker?.village || 'रामपुर';
 
   return tr(
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
@@ -30,13 +41,15 @@ export const AshaProfileModal: React.FC<AshaProfileModalProps> = ({
         <div className="flex items-center justify-between pb-3 border-b border-[#e6eeff]">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 rounded-full bg-[#9c4500] text-white flex items-center justify-center font-bold text-xl shadow-md">
-              SD
+              {initialsOf(worker?.name)}
             </div>
             <div>
               <h3 className="font-headline-sm text-[18px] text-[#121c2a] font-bold">
-                सुनीता देवी (Sunita Devi)
+                {worker?.name ?? 'ASHA Worker'}
               </h3>
-              <p className="text-[12px] text-[#574238]">ASHA कार्यकर्ता • ID: ASHA-BR-4091</p>
+              <p className="text-[12px] text-[#574238]">
+                ASHA कार्यकर्ता • ID: {workerDisplayId(worker) || '—'}
+              </p>
             </div>
           </div>
           <button
@@ -55,8 +68,8 @@ export const AshaProfileModal: React.FC<AshaProfileModalProps> = ({
                 domain
               </span>
               <div>
-                <p className="text-[13px] font-bold text-[#121c2a]">रामपुर प्राथमिक स्वास्थ्य केंद्र (PHC)</p>
-                <p className="text-[11px] text-[#574238]">उप-केंद्र: रामपुर वार्ड ४ • जिला: समस्तीपुर</p>
+                <p className="text-[13px] font-bold text-[#121c2a]">{village} प्राथमिक स्वास्थ्य केंद्र (PHC)</p>
+                <p className="text-[11px] text-[#574238]">उप-केंद्र: {village} • जिला: समस्तीपुर</p>
               </div>
             </div>
             <span className="bg-[#8ff3f4]/40 text-[#004f51] text-[11px] font-bold px-2 py-0.5 rounded">

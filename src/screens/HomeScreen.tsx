@@ -2,6 +2,7 @@ import { useTranslate } from '../i18n/LanguageContext';
 import React, { useState } from 'react';
 import { Patient, Screen, Symptom } from '../types';
 import { playSpokenText, stopSpokenText } from '../utils/speech';
+import type { AuthWorker } from '../lib/api';
 
 interface HomeScreenProps {
   onNavigate: (screen: Screen) => void;
@@ -10,6 +11,7 @@ interface HomeScreenProps {
   onOpenHomeVisits: () => void;
   unsyncedCount: number;
   patients: Patient[];
+  worker?: AuthWorker | null;
 }
 
 export const HomeScreen: React.FC<HomeScreenProps> = ({
@@ -18,7 +20,8 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
   onToggleOnline,
   onOpenHomeVisits,
   unsyncedCount,
-  patients
+  patients,
+  worker
 }) => {
   const tr = useTranslate();
   const [isPlayingTip, setIsPlayingTip] = useState(false);
@@ -93,7 +96,7 @@ export const HomeScreen: React.FC<HomeScreenProps> = ({
           <div className="flex flex-col gap-0.5">
             <div className="flex items-center gap-1.5">
               <span className="font-headline-md text-[22px] text-[#121c2a] font-bold">
-                नमस्ते सुनीता जी
+                नमस्ते {worker?.name || 'ASHA कार्यकर्ता'} जी
               </span>
               <span className="text-xl">🙏</span>
             </div>

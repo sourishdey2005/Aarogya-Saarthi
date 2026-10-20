@@ -5,11 +5,15 @@ import { INITIAL_PRESCRIPTION_SCANS, INITIAL_HOME_VISITS } from './data/mockData
 import {
   createPatient,
   getAuthToken,
+  getMe,
+  getStoredWorker,
+  setStoredWorker,
   getSyncPending,
   listPatients,
   newClientRecordId,
   resolveApiBase,
   setAuthToken,
+  type AuthWorker,
   type TriageAdvice,
   type TriageResult,
 } from './lib/api';
@@ -80,6 +84,7 @@ export default function App() {
   const [prescriptions, setPrescriptions] = useState<PrescriptionScan[]>(INITIAL_PRESCRIPTION_SCANS);
   const [homeVisits, setHomeVisits] = useState<HomeVisitTask[]>(INITIAL_HOME_VISITS);
   const [selectedPatient, setSelectedPatient] = useState<Patient>(EMPTY_PATIENT);
+  const [worker, setWorker] = useState<AuthWorker | null>(() => getStoredWorker());
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Live counters coming from GET /api/sync/pending (null = backend not reached).
@@ -179,6 +184,14 @@ export default function App() {
         await flushOfflineQueue();
       } catch (error) {
         console.warn('[api] offline queue could not be flushed', error);
+      }
+
+      // Refresh the signed-in worker so the header always shows the real owner
+      // of this account (never a hardcoded demo name).
+      const me = await getMe();
+      if (!cancelled && me) {
+        setWorker(me);
+        setStoredWorker(me);
       }
 
       try {
@@ -347,6 +360,8 @@ export default function App() {
 
   const handleSignOut = () => {
     setAuthToken(null);
+    setStoredWorker(null);
+    setWorker(null);
     setIsAuthenticated(false);
     setPatients([]);
     setSelectedPatient(EMPTY_PATIENT);
@@ -374,7 +389,11 @@ export default function App() {
     return (
       <AuthScreen
         onBack={() => {}}
-        onSignedIn={() => setIsAuthenticated(true)}
+        onSignedIn={(signedInWorker) => {
+          setWorker(signedInWorker);
+          setStoredWorker(signedInWorker);
+          setIsAuthenticated(true);
+        }}
         showToast={showToast}
       />
     );
@@ -391,6 +410,7 @@ export default function App() {
             onToggleOnline={handleToggleOnline}
             unsyncedCount={totalUnsynced}
             onSignOut={handleSignOut}
+            worker={worker}
           />
 
       <div className="flex-1 min-w-0 flex flex-col">
@@ -400,6 +420,7 @@ export default function App() {
           onNavigate={setCurrentScreen}
           onOpenProfile={() => setIsProfileOpen(true)}
           unsyncedCount={totalUnsynced}
+          worker={worker}
         />
 
         {/* Main Content Container - mobile canvas on phones, wide dashboard on laptops */}
@@ -412,6 +433,7 @@ export default function App() {
               onOpenHomeVisits={() => setIsHomeVisitsOpen(true)}
               unsyncedCount={totalUnsynced}
               patients={patients}
+              worker={worker}
             />
           )}
 
@@ -420,6 +442,7 @@ export default function App() {
               onSavePatientAndContinue={handleSavePatientAndContinue}
               onBack={() => setCurrentScreen('home')}
               showToast={showToast}
+              worker={worker}
             />
           )}
 
@@ -483,6 +506,7 @@ export default function App() {
         onToggleOnline={handleToggleOnline}
         syncedCount={totalSynced}
         unsyncedCount={totalUnsynced}
+        worker={worker}
       />
 
       {/* Home Visits Modal */}
@@ -506,6 +530,7 @@ export default function App() {
         isOpen={isWhatsAppOpen}
         onClose={() => setIsWhatsAppOpen(false)}
         patient={selectedPatient}
+        worker={worker}
         onShared={() => showToast('व्हाट्सएप पर रामपुर PHC रेफरल पर्ची तैयार की गई')}
       />
 

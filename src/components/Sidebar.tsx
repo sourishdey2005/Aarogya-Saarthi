@@ -2,6 +2,7 @@ import React from 'react';
 import { Screen } from '../types';
 import { useLang , useTranslate} from '../i18n/LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
+import { workerDisplayId, type AuthWorker } from '../lib/api';
 
 interface SidebarProps {
   currentScreen: Screen;
@@ -11,6 +12,7 @@ interface SidebarProps {
   isOnline: boolean;
   onToggleOnline: () => void;
   unsyncedCount: number;
+  worker?: AuthWorker | null;
 }
 
 const NAV_ITEMS: {
@@ -37,6 +39,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOnline,
   onToggleOnline,
   unsyncedCount,
+  worker,
 }) => {
   const tr = useTranslate();
   const { lang } = useLang();
@@ -52,7 +55,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
             आरोग्य-सारथी
           </span>
           <span className="font-label-sm text-[12px] text-[#574238] leading-none">
-            सुनीता देवी • रामपुर
+            {worker?.name ?? 'आरोग्य-सारथी'}
+            {worker?.village ? ` • ${worker.village}` : ''}
           </span>
         </div>
       </div>
@@ -151,9 +155,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
           <span className="flex flex-col leading-tight">
             <span className="font-label-md text-[13px] font-bold text-[#121c2a]">
-              सुनीता देवी
+              {worker?.name ?? 'ASHA Worker'}
             </span>
-            <span className="font-label-sm text-[11px] text-[#574238]">ASHA • Rampur</span>
+            <span className="font-label-sm text-[11px] text-[#574238]">
+              {workerDisplayId(worker) || 'ASHA'}
+              {worker?.village ? ` • ${worker.village}` : ''}
+            </span>
           </span>
         </button>
       </div>

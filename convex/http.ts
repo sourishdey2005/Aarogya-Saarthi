@@ -22,6 +22,20 @@ function errorResponse(message: string, status = 400, code = "request_failed"): 
 }
 
 /**
+ * Convex prefixes thrown errors with "Uncaught Error:" and appends the source
+ * location. Strip that so clients receive a clean, user-facing sentence.
+ */
+function cleanErrorMessage(raw: string): string {
+  const firstLine = raw.split("\n")[0] ?? "";
+  const cleaned = firstLine
+    .replace(/^Uncaught Error:\s*/i, "")
+    .replace(/^Error:\s*/i, "")
+    .replace(/\s+at\s+(handler|async handler)\b.*$/i, "")
+    .trim();
+  return cleaned || "Something went wrong. Please try again.";
+}
+
+/**
  * Wraps a handler so that thrown errors are always serialized as JSON.
  * Without this, Convex returns a plain-text 500 and the browser fails with
  * "Unexpected end of JSON input".
@@ -31,7 +45,7 @@ function safe(handler: (ctx: ActionCtx, req: Request) => Promise<Response>) {
     try {
       return await handler(ctx, req);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = cleanErrorMessage(error instanceof Error ? error.message : String(error));
       console.error("[http]", message);
       return errorResponse(message, 400);
     }

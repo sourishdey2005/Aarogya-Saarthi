@@ -1,19 +1,22 @@
 import { useTranslate } from '../i18n/LanguageContext';
 import React, { useState } from 'react';
 import { Patient } from '../types';
+import type { AuthWorker } from '../lib/api';
 
 interface WhatsAppShareModalProps {
   isOpen: boolean;
   onClose: () => void;
   patient: Patient;
   onShared: () => void;
+  worker?: AuthWorker | null;
 }
 
 export const WhatsAppShareModal: React.FC<WhatsAppShareModalProps> = ({
   isOpen,
   onClose,
   patient,
-  onShared
+  onShared,
+  worker
 }) => {
   const tr = useTranslate();
   const [copied, setCopied] = useState(false);
@@ -36,7 +39,7 @@ ${patient.symptoms.map((s) => `• ${s.nameHi} (${s.nameEn})`).join('\n')}
 ⏱️ *सलाह*: २४ घंटे के अंदर MOIC डॉ. राजेश से जांच करवाएं।
 📞 आपातकाल: १०८ डायल करें।
 
-👩‍⚕️ *आशा कार्यकर्ता*: सुनीता देवी (रामपुर)
+👩‍⚕️ *आशा कार्यकर्ता*: ${worker?.name ?? 'ASHA Worker'}${worker?.village ? ` (${worker.village})` : ''}
 -----------------------------------
 (नोट: यह एआई-सहायता प्राप्त रेफरल पर्ची है।)`;
 

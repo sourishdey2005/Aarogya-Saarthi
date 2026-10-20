@@ -39,6 +39,37 @@ export function resolveApiBase(): string {
 }
 
 const TOKEN_STORAGE_KEY = "aarogya.auth.token";
+const WORKER_STORAGE_KEY = "aarogya.auth.worker";
+
+/** The signed-in ASHA worker. */
+export interface AuthWorker {
+  id: string;
+  name: string;
+  village?: string | null;
+  phone?: string | null;
+}
+
+export function getStoredWorker(): AuthWorker | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(WORKER_STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as AuthWorker) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function setStoredWorker(worker: AuthWorker | null): void {
+  if (typeof window === "undefined") return;
+  if (worker) window.localStorage.setItem(WORKER_STORAGE_KEY, JSON.stringify(worker));
+  else window.localStorage.removeItem(WORKER_STORAGE_KEY);
+}
+
+/** Short human-readable worker id derived from the Convex document id. */
+export function workerDisplayId(worker: AuthWorker | null | undefined): string {
+  if (!worker?.id) return "";
+  return `ASHA-${worker.id.slice(-6).toUpperCase()}`;
+}
 
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
@@ -296,6 +327,17 @@ export async function postTriage(input: {
   raw_transcript?: string | null;
 }): Promise<TriageResponse> {
   return request<TriageResponse>("/api/triage", { method: "POST", body: input });
+}
+
+/** Fetches the worker tied to the stored auth token (null when signed out). */
+export async function getMe(): Promise<AuthWorker | null> {
+  if (!getAuthToken()) return null;
+  try {
+    const result = await request<{ worker: AuthWorker | null }>("/api/auth/me");
+    return result.worker ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export async function checkBackend(): Promise<boolean> {

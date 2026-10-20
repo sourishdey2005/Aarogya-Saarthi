@@ -1,6 +1,23 @@
-import { mutation, query } from "./_generated/server";
+import { mutation, query, type MutationCtx } from "./_generated/server";
 import { v } from "convex/values";
 import { sha256 } from "./helpers";
+
+/**
+ * Looks a worker up by either identifier column. Older accounts may have stored
+ * an email in the `phone` field, so both indexes are checked.
+ */
+async function findWorkerByIdentifier(ctx: MutationCtx, value: string) {
+  const byEmail = await ctx.db
+    .query("ashaWorkers")
+    .withIndex("by_email", (q) => q.eq("email", value))
+    .unique();
+  if (byEmail) return byEmail;
+
+  return await ctx.db
+    .query("ashaWorkers")
+    .withIndex("by_phone", (q) => q.eq("phone", value))
+    .unique();
+}
 
 export const signup = mutation({
   args: {
@@ -15,25 +32,13 @@ export const signup = mutation({
     const normalizedPhone = phone?.trim() || undefined;
     const normalizedEmail = email?.trim() || undefined;
 
-    // Check if phone already exists
-    if (normalizedPhone) {
-      const existing = await ctx.db
-        .query("ashaWorkers")
-        .withIndex("by_phone", (q) => q.eq("phone", normalizedPhone))
-        .unique();
+    for (const identifier of [normalizedPhone, normalizedEmail]) {
+      if (!identifier) continue;
+      const existing = await findWorkerByIdentifier(ctx, identifier);
       if (existing) {
-        throw new Error("An account with that phone already exists");
-      }
-    }
-
-    // Check if email already exists
-    if (normalizedEmail) {
-      const existing = await ctx.db
-        .query("ashaWorkers")
-        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
-        .unique();
-      if (existing) {
-        throw new Error("An account with that email already exists");
+        throw new Error(
+          "An account with this phone/email already exists. Please sign in instead."
+        );
       }
     }
 
@@ -75,33 +80,20 @@ export const login = mutation({
   },
   handler: async (ctx, args) => {
     const { phone, email, password } = args;
-    const normalizedPhone = phone?.trim() || undefined;
-    const normalizedEmail = email?.trim() || undefined;
+    const identifier = email?.trim() || phone?.trim() || undefined;
 
-    if (!normalizedPhone && !normalizedEmail) {
-      throw new Error("Either phone or email is required");
+    if (!identifier) {
+      throw new Error("Enter your phone number or email.");
     }
 
-    let worker;
-    if (normalizedPhone) {
-      worker = await ctx.db
-        .query("ashaWorkers")
-        .withIndex("by_phone", (q) => q.eq("phone", normalizedPhone))
-        .unique();
-    } else if (normalizedEmail) {
-      worker = await ctx.db
-        .query("ashaWorkers")
-        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
-        .unique();
-    }
-
+    const worker = await findWorkerByIdentifier(ctx, identifier);
     if (!worker) {
-      throw new Error("Phone / email or password is wrong");
+      throw new Error("Incorrect phone/email or password.");
     }
 
     const candidate = await sha256(`${worker.passwordSalt}:${password}`);
     if (candidate !== worker.passwordHash) {
-      throw new Error("Phone / email or password is wrong");
+      throw new Error("Incorrect phone/email or password.");
     }
 
     const token = worker._id;
@@ -120,10 +112,10 @@ export const login = mutation({
 export const me = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
-    // In a real app, you'd validate the token against a sessions table
-    // For now, we'll use the token as the worker ID directly (dev mode)
+    // The token is the worker id, so a session is a direct document lookup.
     const worker = await ctx.db.get(args.token as any);
     if (!worker) return { worker: null };
+
     return {
       worker: {
         id: worker._id,

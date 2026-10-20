@@ -2,19 +2,22 @@ import React from 'react';
 import { Screen } from '../types';
 import { useLang , useTranslate} from '../i18n/LanguageContext';
 import { LanguageToggle } from './LanguageToggle';
+import type { AuthWorker } from '../lib/api';
 
 interface HeaderProps {
   currentScreen: Screen;
   onNavigate: (screen: Screen) => void;
   onOpenProfile: () => void;
   unsyncedCount: number;
+  worker?: AuthWorker | null;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   currentScreen,
   onNavigate,
   onOpenProfile,
-  unsyncedCount
+  unsyncedCount,
+  worker
 }) => {
   const tr = useTranslate();
   const { lang, toggleLang } = useLang();
@@ -48,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
                 {getSubScreenTitle()}
               </h1>
               <span className="font-label-sm text-[12px] text-[#574238] leading-none">
-                आरोग्य-सारथी • रामपुर
+                आरोग्य-सारथी{worker?.village ? ` • ${worker.village}` : ''}
               </span>
             </div>
           </div>
@@ -67,7 +70,8 @@ export const Header: React.FC<HeaderProps> = ({
                 </span>
               </div>
               <span className="font-label-sm text-[12px] text-[#574238] leading-none">
-                सुनीता देवी • रामपुर
+                {worker?.name ?? 'आरोग्य-सारथी'}
+                {worker?.village ? ` • ${worker.village}` : ''}
               </span>
             </div>
           </div>
