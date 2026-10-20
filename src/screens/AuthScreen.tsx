@@ -33,7 +33,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onBack, onSignedIn, show
     setIsBusy(true);
     setError(null);
 
-    const baseUrl = await resolveApiBase();
+    const baseUrl = resolveApiBase();
     const url = mode === 'signup' ? `${baseUrl}/api/auth/signup` : `${baseUrl}/api/auth/login`;
     const body =
       mode === 'signup'
@@ -51,15 +51,36 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onBack, onSignedIn, show
           };
 
     try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data?.error?.message ?? 'Authentication failed');
+      let response: Response;
+      try {
+        response = await fetch(url, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+      } catch {
+        throw new Error('सर्वर से कनेक्ट नहीं हो सका (Cannot reach the server). Check your internet connection.');
       }
+
+      const text = await response.text();
+      let data: any = null;
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch {
+          throw new Error(
+            `Server returned an invalid response (${response.status}). Please try again in a moment.`
+          );
+        }
+      }
+
+      if (!response.ok) {
+        throw new Error(data?.error?.message ?? `Authentication failed (${response.status})`);
+      }
+      if (!data?.token) {
+        throw new Error('Server did not return a login token. Please try again.');
+      }
+
       setAuthToken(data.token);
       showToast(mode === 'signup' ? 'खाता बना लिया गया ✓ (Account created)' : 'लॉगिन सफल ✓ (Signed in)');
       onSignedIn(data.worker);

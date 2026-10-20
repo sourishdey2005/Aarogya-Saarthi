@@ -26,8 +26,9 @@ function spaFallback(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  // Hardcoded Convex Cloud URL - works without any Vercel env vars
-  const convexUrl = "https://fabulous-magpie-388.convex.cloud";
+  // Hardcoded Convex Cloud HTTP Actions URL (.convex.site, NOT .convex.cloud)
+  // works without any Vercel env vars
+  const convexUrl = "https://fabulous-magpie-388.convex.site";
 
   return {
     plugins: [

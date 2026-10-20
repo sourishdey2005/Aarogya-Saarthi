@@ -2,12 +2,6 @@ import { mutation, query } from "./_generated/server";
 import { v } from "convex/values";
 import { sha256 } from "./helpers";
 
-const SESSION_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
-
-function generateSessionToken(): string {
-  return crypto.randomUUID();
-}
-
 export const signup = mutation({
   args: {
     name: v.string(),
@@ -18,12 +12,14 @@ export const signup = mutation({
   },
   handler: async (ctx, args) => {
     const { name, village, phone, email, password } = args;
+    const normalizedPhone = phone?.trim() || undefined;
+    const normalizedEmail = email?.trim() || undefined;
 
     // Check if phone already exists
-    if (phone) {
+    if (normalizedPhone) {
       const existing = await ctx.db
         .query("ashaWorkers")
-        .withIndex("by_phone", (q) => q.eq("phone", phone))
+        .withIndex("by_phone", (q) => q.eq("phone", normalizedPhone))
         .unique();
       if (existing) {
         throw new Error("An account with that phone already exists");
@@ -31,10 +27,10 @@ export const signup = mutation({
     }
 
     // Check if email already exists
-    if (email) {
+    if (normalizedEmail) {
       const existing = await ctx.db
         .query("ashaWorkers")
-        .withIndex("by_email", (q) => q.eq("email", email))
+        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
         .unique();
       if (existing) {
         throw new Error("An account with that email already exists");
@@ -44,18 +40,30 @@ export const signup = mutation({
     const salt = crypto.randomUUID();
     const hash = await sha256(`${salt}:${password}`);
 
+    const displayName = name.trim() || "ASHA Worker";
+    const displayVillage = village?.trim() || "Rampur";
+
+    // Optional fields must be omitted (not null) to satisfy v.optional().
     const workerId = await ctx.db.insert("ashaWorkers", {
-      name: name.trim() || "ASHA Worker",
-      village: village?.trim() || "Rampur",
-      phone: phone?.trim() || null,
-      email: email?.trim() || null,
+      name: displayName,
+      village: displayVillage,
+      ...(normalizedPhone ? { phone: normalizedPhone } : {}),
+      ...(normalizedEmail ? { email: normalizedEmail } : {}),
       passwordHash: hash,
       passwordSalt: salt,
       createdAt: Date.now(),
     });
 
-    const token = generateSessionToken();
-    return { token, workerId, name: name.trim() || "ASHA Worker", village: village?.trim() || "Rampur", phone: phone?.trim() || null };
+    // The worker id doubles as the session token: every other endpoint
+    // authorizes by treating the bearer token as the ashaWorkerId.
+    const token = workerId;
+    return {
+      token,
+      workerId,
+      name: displayName,
+      village: displayVillage,
+      phone: normalizedPhone ?? null,
+    };
   },
 });
 
@@ -67,21 +75,23 @@ export const login = mutation({
   },
   handler: async (ctx, args) => {
     const { phone, email, password } = args;
+    const normalizedPhone = phone?.trim() || undefined;
+    const normalizedEmail = email?.trim() || undefined;
 
-    if (!phone && !email) {
+    if (!normalizedPhone && !normalizedEmail) {
       throw new Error("Either phone or email is required");
     }
 
     let worker;
-    if (phone) {
+    if (normalizedPhone) {
       worker = await ctx.db
         .query("ashaWorkers")
-        .withIndex("by_phone", (q) => q.eq("phone", phone))
+        .withIndex("by_phone", (q) => q.eq("phone", normalizedPhone))
         .unique();
-    } else if (email) {
+    } else if (normalizedEmail) {
       worker = await ctx.db
         .query("ashaWorkers")
-        .withIndex("by_email", (q) => q.eq("email", email))
+        .withIndex("by_email", (q) => q.eq("email", normalizedEmail))
         .unique();
     }
 
@@ -94,7 +104,7 @@ export const login = mutation({
       throw new Error("Phone / email or password is wrong");
     }
 
-    const token = generateSessionToken();
+    const token = worker._id;
     return {
       token,
       worker: {

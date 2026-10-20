@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Screen, Patient, PrescriptionScan, HomeVisitTask } from './types';
-import { INITIAL_PATIENTS, INITIAL_PRESCRIPTION_SCANS, INITIAL_HOME_VISITS } from './data/mockData';
+import { INITIAL_PRESCRIPTION_SCANS, INITIAL_HOME_VISITS } from './data/mockData';
 import {
   createPatient,
   getAuthToken,
@@ -55,14 +55,31 @@ export function screenFromPath(pathname: string): Screen {
   return PATH_TO_SCREEN[clean.toLowerCase()] ?? 'home';
 }
 
+/** Placeholder shown before the signed-in worker's first patient is loaded. */
+const EMPTY_PATIENT: Patient = {
+  id: '',
+  rchId: '',
+  nameHi: '',
+  nameEn: '',
+  age: 0,
+  gender: 'female',
+  ward: '',
+  symptoms: [],
+  triageLevel: 1,
+  lastVisit: '',
+  status: 'home_care',
+  notes: [],
+  isSynced: true,
+};
+
 export default function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const currentScreen = screenFromPath(location.pathname);
-  const [patients, setPatients] = useState<Patient[]>(INITIAL_PATIENTS);
+  const [patients, setPatients] = useState<Patient[]>([]);
   const [prescriptions, setPrescriptions] = useState<PrescriptionScan[]>(INITIAL_PRESCRIPTION_SCANS);
   const [homeVisits, setHomeVisits] = useState<HomeVisitTask[]>(INITIAL_HOME_VISITS);
-  const [selectedPatient, setSelectedPatient] = useState<Patient>(INITIAL_PATIENTS[0]);
+  const [selectedPatient, setSelectedPatient] = useState<Patient>(EMPTY_PATIENT);
   const [isOnline, setIsOnline] = useState<boolean>(true);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // Live counters coming from GET /api/sync/pending (null = backend not reached).
@@ -153,6 +170,7 @@ export default function App() {
   // On boot: replay anything that was queued while offline, then load the
   // patients and the pending counters from the API.
   useEffect(() => {
+    if (!isAuthenticated) return;
     let cancelled = false;
 
     const boot = async () => {
@@ -164,28 +182,12 @@ export default function App() {
       }
 
       try {
-        let remotePatients = await listPatients();
-
-        // First run: seed the demo patients so every screen has real rows.
-        if (remotePatients.length === 0) {
-          for (const patient of INITIAL_PATIENTS) {
-            try {
-              await createPatient({
-                name: patient.nameHi,
-                age: patient.age,
-                gender: patient.gender,
-                village: patient.ward,
-                client_id: newClientRecordId(),
-              });
-            } catch {
-              /* seeding is best effort */
-            }
-          }
-          remotePatients = await listPatients();
-        }
+        const remotePatients = await listPatients();
 
         if (cancelled) return;
-        if (remotePatients.length > 0) {
+        if (remotePatients.length === 0) {
+          setPatients([]);
+        } else {
           setPatients(
             remotePatients.map((remote) => ({
               id: remote.id,
@@ -231,7 +233,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [flushOfflineQueue, refreshPendingCount]);
+  }, [flushOfflineQueue, refreshPendingCount, isAuthenticated]);
 
   // Replay the queue as soon as the device is online again.
   useEffect(() => {
@@ -346,6 +348,9 @@ export default function App() {
   const handleSignOut = () => {
     setAuthToken(null);
     setIsAuthenticated(false);
+    setPatients([]);
+    setSelectedPatient(EMPTY_PATIENT);
+    setServerPendingCount(null);
   };
 
   const handleSaveNote = (note: string) => {

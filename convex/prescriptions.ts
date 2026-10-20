@@ -25,23 +25,22 @@ export const createPrescription = mutation({
     // Check if already exists (idempotent)
     const existing = await ctx.db
       .query("prescriptions")
-      .withIndex("by_patient", (q) => q.eq("patientId", patientId))
-      .filter((q) => q.eq(q.field("_id"), clientRecordId))
-      .unique();
+      .withIndex("by_client_record_id", (q) => q.eq("clientRecordId", clientRecordId))
+      .first();
 
     if (existing) {
       return { prescription: existing, created: false };
     }
 
     const prescriptionId = await ctx.db.insert("prescriptions", {
-      _id: clientRecordId,
       patientId,
       ashaWorkerId,
-      imageUrl,
-      imageMime,
-      imageBytes,
-      ocrText,
-      ocrConfidence,
+      clientRecordId,
+      ...(imageUrl !== undefined ? { imageUrl } : {}),
+      ...(imageMime !== undefined ? { imageMime } : {}),
+      ...(imageBytes !== undefined ? { imageBytes } : {}),
+      ...(ocrText !== undefined ? { ocrText } : {}),
+      ...(ocrConfidence !== undefined ? { ocrConfidence } : {}),
       capturedAt,
       syncedAt: Date.now(),
       createdAt: Date.now(),

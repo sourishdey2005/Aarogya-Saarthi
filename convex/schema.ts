@@ -16,6 +16,7 @@ export default defineSchema({
 
   patients: defineTable({
     ashaWorkerId: v.id("ashaWorkers"),
+    clientRecordId: v.optional(v.string()),
     name: v.string(),
     age: v.optional(v.number()),
     gender: v.optional(v.union(v.literal("female"), v.literal("male"), v.literal("other"))),
@@ -42,11 +43,13 @@ export default defineSchema({
     })),
     createdAt: v.number(),
   })
-    .index("by_asha_worker", ["ashaWorkerId"]),
+    .index("by_asha_worker", ["ashaWorkerId"])
+    .index("by_client_record_id", ["clientRecordId"]),
 
   symptomLogs: defineTable({
     patientId: v.id("patients"),
     ashaWorkerId: v.id("ashaWorkers"),
+    clientRecordId: v.optional(v.string()),
     rawTranscript: v.optional(v.string()),
     symptoms: v.array(v.string()),
     capturedAt: v.number(),
@@ -61,11 +64,13 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_patient", ["patientId"])
-    .index("by_asha_worker", ["ashaWorkerId"]),
+    .index("by_asha_worker", ["ashaWorkerId"])
+    .index("by_client_record_id", ["clientRecordId"]),
 
   prescriptions: defineTable({
     patientId: v.id("patients"),
     ashaWorkerId: v.id("ashaWorkers"),
+    clientRecordId: v.optional(v.string()),
     imageUrl: v.optional(v.string()),
     imageMime: v.optional(v.string()),
     imageBytes: v.optional(v.number()),
@@ -76,7 +81,8 @@ export default defineSchema({
     createdAt: v.number(),
   })
     .index("by_patient", ["patientId"])
-    .index("by_asha_worker", ["ashaWorkerId"]),
+    .index("by_asha_worker", ["ashaWorkerId"])
+    .index("by_client_record_id", ["clientRecordId"]),
 
   syncQueue: defineTable({
     clientRecordId: v.string(),

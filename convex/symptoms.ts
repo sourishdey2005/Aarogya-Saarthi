@@ -29,24 +29,23 @@ export const createSymptomLog = mutation({
     // Check if already exists (idempotent)
     const existing = await ctx.db
       .query("symptomLogs")
-      .withIndex("by_patient", (q) => q.eq("patientId", patientId))
-      .filter((q) => q.eq(q.field("_id"), clientRecordId))
-      .unique();
+      .withIndex("by_client_record_id", (q) => q.eq("clientRecordId", clientRecordId))
+      .first();
 
     if (existing) {
       return { symptomLog: existing, created: false };
     }
 
     const logId = await ctx.db.insert("symptomLogs", {
-      _id: clientRecordId,
       patientId,
       ashaWorkerId,
-      rawTranscript,
+      clientRecordId,
+      ...(rawTranscript !== undefined ? { rawTranscript } : {}),
       symptoms,
       capturedAt,
       syncedAt: Date.now(),
-      triageResult,
-      triageAdvice,
+      ...(triageResult ? { triageResult } : {}),
+      ...(triageAdvice ? { triageAdvice } : {}),
       createdAt: Date.now(),
     });
 
@@ -59,7 +58,7 @@ export const createSymptomLog = mutation({
         patient_id: patientId,
         symptoms,
         captured_at: capturedAt,
-        triage_result: triageResult,
+        ...(triageResult ? { triage_result: triageResult } : {}),
       },
       status: "synced",
       createdAt: Date.now(),

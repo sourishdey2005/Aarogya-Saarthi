@@ -31,36 +31,34 @@ export const createPatient = mutation({
     age: v.optional(v.number()),
     gender: v.optional(v.union(v.literal("female"), v.literal("male"), v.literal("other"))),
     village: v.optional(v.string()),
-    clientId: v.optional(v.string()),
+    clientRecordId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { ashaWorkerId, name, age, gender, village, clientId } = args;
-    const id = clientId ?? crypto.randomUUID();
+    const { ashaWorkerId, name, age, gender, village, clientRecordId } = args;
 
-    // Check if patient with this ID already exists for this worker
-    const existing = await ctx.db
-      .query("patients")
-      .withIndex("by_asha_worker", (q) => q.eq("ashaWorkerId", ashaWorkerId))
-      .filter((q) => q.eq(q.field("_id"), id))
-      .unique();
-
-    if (existing) {
-      return { patient: existing, created: false };
+    // Idempotent replay: the same client record id never creates duplicates.
+    if (clientRecordId) {
+      const existing = await ctx.db
+        .query("patients")
+        .withIndex("by_client_record_id", (q) => q.eq("clientRecordId", clientRecordId))
+        .first();
+      if (existing) {
+        return { patient: existing, created: false };
+      }
     }
 
     const patientId = await ctx.db.insert("patients", {
-      _id: id,
       ashaWorkerId,
+      ...(clientRecordId ? { clientRecordId } : {}),
       name,
-      age: age ?? 0,
-      gender: gender ?? "female",
-      village: village ?? "",
-      photoUrl: "https://lh3.googleusercontent.com/aida-public/AB6AXuDnxJqC0Pa6-pUCGC68IZUtA5T_Fa-BRxOlVdA93uTJars9feBKeZCYx1KgINB7iAxJO0gJMh236vfEjbkPo7KzHzW4dEeWlb54Bn6FOGEv2dvhJCb8LB4-Kq_83ZbWJoaD7BjMi71kbspFMZ0ZiO9G31WSXEPzgd7eVLrxT5123m_DlxPqHQLaPcL2WfCkqq24Ii1jWkoTSFkXpYIvKKeqbCKswo7fj_tQjzARu6hWoDIPKMqEJXfJHA",
+      ...(age !== undefined ? { age } : {}),
+      ...(gender ? { gender } : {}),
+      ...(village ? { village } : {}),
       symptoms: [],
       triageLevel: 2,
       lastVisit: new Date().toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }),
       isHighRisk: false,
-      status: "referred",
+      status: "active",
       notes: [],
       isSynced: true,
       createdAt: Date.now(),
