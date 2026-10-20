@@ -6,6 +6,13 @@
  */
 
 import { enqueueRequest } from "./offlineQueue";
+import {
+  Hospital,
+  Doctor,
+  Appointment,
+  Expense,
+  ExpenseTotal,
+} from "../types";
 
 /** Base URL for Convex HTTP actions - injected at build time via Vite define. */
 declare const __CONVEX_URL__: string;
@@ -410,7 +417,136 @@ export async function checkBackend(): Promise<boolean> {
  headers: getAuthToken() ? { authorization: `Bearer ${getAuthToken()}` } : {},
  });
  return response.ok;
- } catch {
- return false;
- }
+  } catch {
+  return false;
+  }
+}
+
+/* ------------------------------------------------------------- Hospitals */
+
+export interface CreateHospitalInput {
+  name: string;
+  type: "govt" | "private";
+  village?: string | null;
+  address?: string | null;
+  phone?: string | null;
+  emergency?: boolean | null;
+  specialties?: string[] | null;
+  distance_km?: number | null;
+  client_record_id?: string;
+}
+
+export async function listHospitals(): Promise<Hospital[]> {
+  const result = await request<{ hospitals: Hospital[] }>("/api/hospitals");
+  return result.hospitals ?? [];
+}
+
+export async function createHospital(input: CreateHospitalInput): Promise<ApiResult<{ hospital: Hospital; created: boolean }>> {
+  return write("/api/hospitals", input as unknown as Record<string, unknown>);
+}
+
+export async function deleteHospital(hospitalId: string): Promise<ApiResult<{ deleted: boolean; id: string }>> {
+  return write(`/api/hospitals/${encodeURIComponent(hospitalId)}`, undefined, "DELETE");
+}
+
+/* ------------------------------------------------------------- Doctors */
+
+export interface CreateDoctorInput {
+  hospital_id?: string | null;
+  name: string;
+  specialization: string;
+  phone?: string | null;
+  consultation_fee_rupees?: number | null;
+  available_days?: string[] | null;
+  available_times?: string[] | null;
+  client_record_id?: string;
+}
+
+export async function listDoctors(hospitalId?: string): Promise<Doctor[]> {
+  const params = hospitalId ? `?hospital_id=${encodeURIComponent(hospitalId)}` : "";
+  const result = await request<{ doctors: Doctor[] }>(`/api/doctors${params}`);
+  return result.doctors ?? [];
+}
+
+export async function createDoctor(input: CreateDoctorInput): Promise<ApiResult<{ doctor: Doctor; created: boolean }>> {
+  return write("/api/doctors", input as unknown as Record<string, unknown>);
+}
+
+export async function deleteDoctor(doctorId: string): Promise<ApiResult<{ deleted: boolean; id: string }>> {
+  return write(`/api/doctors/${encodeURIComponent(doctorId)}`, undefined, "DELETE");
+}
+
+/* ------------------------------------------------------------- Appointments */
+
+export interface CreateAppointmentInput {
+  patient_id: string;
+  doctor_id?: string | null;
+  hospital_id?: string | null;
+  doctor_name: string;
+  hospital_name: string;
+  appointment_date: string;
+  appointment_time: string;
+  consultation_fee_rupees?: number | null;
+  amount_paid_rupees?: number | null;
+  status?: "pending" | "confirmed" | "completed" | "cancelled" | null;
+  notes?: string | null;
+  client_record_id?: string;
+}
+
+export async function listAppointments(status?: string): Promise<Appointment[]> {
+  const params = status ? `?status=${encodeURIComponent(status)}` : "";
+  const result = await request<{ appointments: Appointment[] }>(`/api/appointments${params}`);
+  return result.appointments ?? [];
+}
+
+export async function createAppointment(input: CreateAppointmentInput): Promise<ApiResult<{ appointment: Appointment; created: boolean }>> {
+  return write("/api/appointments", input as unknown as Record<string, unknown>);
+}
+
+export async function updateAppointmentStatus(
+  appointmentId: string,
+  status: "pending" | "confirmed" | "completed" | "cancelled"
+): Promise<ApiResult<{ id: string; status: string; updated: boolean }>> {
+  return write(`/api/appointments/${encodeURIComponent(appointmentId)}`, { status }, "PATCH");
+}
+
+export async function deleteAppointment(appointmentId: string): Promise<ApiResult<{ deleted: boolean; id: string }>> {
+  return write(`/api/appointments/${encodeURIComponent(appointmentId)}`, undefined, "DELETE");
+}
+
+/* ------------------------------------------------------------- Expenses (Rupees) */
+
+export interface CreateExpenseInput {
+  patient_id?: string | null;
+  appointment_id?: string | null;
+  type: "consultation" | "medicine" | "travel" | "other";
+  amount_rupees: number;
+  description?: string | null;
+  date: string;
+  client_record_id?: string;
+}
+
+export async function listExpenses(type?: string, patientId?: string): Promise<Expense[]> {
+  const params = new URLSearchParams();
+  if (type) params.set("type", type);
+  if (patientId) params.set("patient_id", patientId);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  const result = await request<{ expenses: Expense[] }>(`/api/expenses${qs}`);
+  return result.expenses ?? [];
+}
+
+export async function createExpense(input: CreateExpenseInput): Promise<ApiResult<{ expense: Expense; created: boolean }>> {
+  return write("/api/expenses", input as unknown as Record<string, unknown>);
+}
+
+export async function totalExpensesRupees(type?: string, patientId?: string): Promise<ExpenseTotal> {
+  const params = new URLSearchParams();
+  if (type) params.set("type", type);
+  if (patientId) params.set("patient_id", patientId);
+  const qs = params.toString() ? `?${params.toString()}` : "";
+  return request<ExpenseTotal>(`/api/expenses/total${qs}`);
+}
+
+export async function deleteExpense(expenseId: string): Promise<ApiResult<{ deleted: boolean; id: string }>> {
+  return write(`/api/expenses/${encodeURIComponent(expenseId)}`, undefined, "DELETE");
 }

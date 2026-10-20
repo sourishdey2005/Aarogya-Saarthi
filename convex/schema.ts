@@ -89,7 +89,13 @@ export default defineSchema({
 
   syncQueue: defineTable({
     clientRecordId: v.string(),
-    recordType: v.union(v.literal("symptom_log"), v.literal("prescription"), v.literal("patient")),
+    recordType: v.union(
+      v.literal("symptom_log"),
+      v.literal("prescription"),
+      v.literal("patient"),
+      v.literal("appointment"),
+      v.literal("expense")
+    ),
     ashaWorkerId: v.id("ashaWorkers"),
     payload: v.any(),
     status: v.union(v.literal("pending"), v.literal("synced"), v.literal("failed")),
@@ -98,5 +104,71 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_asha_worker_status", ["ashaWorkerId", "status"])
+    .index("by_client_record_id", ["clientRecordId"]),
+
+  hospitals: defineTable({
+    ashaWorkerId: v.id("ashaWorkers"),
+    clientRecordId: v.optional(v.string()),
+    name: v.string(),
+    type: v.union(v.literal("govt"), v.literal("private")),
+    village: v.optional(v.string()),
+    address: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    emergency: v.optional(v.boolean()),
+    specialties: v.optional(v.array(v.string())),
+    distanceKm: v.optional(v.number()),
+  })
+    .index("by_asha_worker", ["ashaWorkerId"])
+    .index("by_type", ["type"])
+    .index("by_client_record_id", ["clientRecordId"]),
+
+  doctors: defineTable({
+    ashaWorkerId: v.id("ashaWorkers"),
+    clientRecordId: v.optional(v.string()),
+    hospitalId: v.optional(v.id("hospitals")),
+    name: v.string(),
+    specialization: v.string(),
+    phone: v.optional(v.string()),
+    consultationFeeRupees: v.optional(v.number()),
+    availableDays: v.optional(v.array(v.string())),
+    availableTimes: v.optional(v.array(v.string())),
+  })
+    .index("by_asha_worker", ["ashaWorkerId"])
+    .index("by_hospital", ["hospitalId"])
+    .index("by_client_record_id", ["clientRecordId"]),
+  appointments: defineTable({
+    ashaWorkerId: v.id("ashaWorkers"),
+    clientRecordId: v.optional(v.string()),
+    patientId: v.id("patients"),
+    doctorId: v.optional(v.id("doctors")),
+    hospitalId: v.optional(v.id("hospitals")),
+    doctorName: v.string(),
+    hospitalName: v.string(),
+    appointmentDate: v.string(),
+    appointmentTime: v.string(),
+    consultationFeeRupees: v.optional(v.number()),
+    amountPaidRupees: v.optional(v.number()),
+    status: v.union(v.literal("pending"), v.literal("confirmed"), v.literal("completed"), v.literal("cancelled")),
+    notes: v.optional(v.string()),
+    createdAt: v.number(),
+  })
+    .index("by_asha_worker", ["ashaWorkerId"])
+    .index("by_patient", ["patientId"])
+    .index("by_status", ["status"])
+    .index("by_client_record_id", ["clientRecordId"]),
+  expenses: defineTable({
+    ashaWorkerId: v.id("ashaWorkers"),
+    clientRecordId: v.optional(v.string()),
+    patientId: v.optional(v.id("patients")),
+    appointmentId: v.optional(v.id("appointments")),
+    type: v.union(v.literal("consultation"), v.literal("medicine"), v.literal("travel"), v.literal("other")),
+    amountRupees: v.number(),
+    description: v.optional(v.string()),
+    date: v.string(),
+    createdAt: v.number(),
+  })
+    .index("by_asha_worker", ["ashaWorkerId"])
+    .index("by_patient", ["patientId"])
+    .index("by_type", ["type"])
     .index("by_client_record_id", ["clientRecordId"]),
 });

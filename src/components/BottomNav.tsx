@@ -16,32 +16,43 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   const tr = useTranslate();
 
   const tabs = [
- {
- id: 'home' as Screen,
- labelHi: 'Home',
- labelEn: 'Home',
- icon: 'cottage'
- },
- {
- id: 'patients' as Screen,
- labelHi: 'Patients',
- labelEn: 'Patients',
- icon: 'groups'
- },
- {
- id: 'scan' as Screen,
- labelHi: 'Scan',
- labelEn: 'Scan',
- icon: 'document_scanner'
- },
- {
- id: 'sync' as Screen,
- labelHi: 'Sync',
- labelEn: 'Sync',
- icon: 'sync_saved_locally',
- badge: unsyncedCount > 0 ? unsyncedCount : undefined
- }
- ];
+  {
+  id: 'home' as Screen,
+  labelEn: 'Home',
+  icon: 'cottage'
+  },
+  {
+  id: 'patients' as Screen,
+  labelEn: 'Patients',
+  icon: 'groups'
+  },
+  {
+  id: 'scan' as Screen,
+  labelEn: 'Scan',
+  icon: 'document_scanner'
+  },
+  {
+  id: 'hospitals' as Screen,
+  labelEn: 'Hospitals',
+  icon: 'local_hospital'
+  },
+  {
+  id: 'appointments' as Screen,
+  labelEn: 'Appointments',
+  icon: 'event'
+  },
+  {
+  id: 'expenses' as Screen,
+  labelEn: 'Expenses',
+  icon: 'paypal',
+  badge: unsyncedCount > 0 ? unsyncedCount : undefined
+  },
+  {
+  id: 'sync' as Screen,
+  labelEn: 'Sync',
+  icon: 'sync_saved_locally'
+  }
+  ];
 
  return tr(
  <nav className="lg:hidden fixed bottom-0 inset-x-0 z-50 pb-safe bg-[#f8f9ff]/95 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.06)] border-t border-[#e6eeff]">

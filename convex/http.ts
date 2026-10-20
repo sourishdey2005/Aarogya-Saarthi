@@ -419,6 +419,284 @@ router.route({
   }),
 });
 
+// Hospitals
+router.route({
+  path: "/api/hospitals",
+  method: "GET",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const result = await ctx.runQuery(internal.hospitals.listHospitals, {
+      ashaWorkerId: token as any,
+    });
+    return json({ hospitals: result });
+  }),
+});
+
+router.route({
+  path: "/api/hospitals",
+  method: "POST",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const body = await readJson(req);
+    const result = await ctx.runMutation(internal.hospitals.createHospital, {
+      ashaWorkerId: token as any,
+      name: str(body.name),
+      type: str(body.type) as any,
+      village: str(body.village),
+      address: str(body.address),
+      phone: str(body.phone),
+      emergency: body.emergency,
+      specialties: Array.isArray(body.specialties) ? body.specialties.map(String) : undefined,
+      distanceKm: num(body.distance_km),
+      clientRecordId: str(body.client_record_id),
+    });
+    return json(
+      { hospital: result.hospital, created: result.created },
+      result.created ? 201 : 200
+    );
+  }),
+});
+
+router.route({
+  pathPrefix: "/api/hospitals/",
+  method: "DELETE",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const segments = new URL(req.url).pathname.split("/").filter(Boolean);
+    const hospitalId = segments[2];
+    if (!hospitalId) return errorResponse("Missing hospital ID", 400, "validation_error");
+    const result = await ctx.runMutation(internal.hospitals.deleteHospital, {
+      hospitalId: hospitalId as any,
+      ashaWorkerId: token as any,
+    });
+    return json({ deleted: result.deleted, id: result.id });
+  }),
+});
+
+// Doctors
+router.route({
+  path: "/api/doctors",
+  method: "GET",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const url = new URL(req.url);
+    const hospitalId = url.searchParams.get("hospital_id") || undefined;
+    const result = await ctx.runQuery(internal.doctors.listDoctors, {
+      ashaWorkerId: token as any,
+      ...(hospitalId ? { hospitalId: hospitalId as any } : {}),
+    });
+    return json({ doctors: result });
+  }),
+});
+
+router.route({
+  path: "/api/doctors",
+  method: "POST",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const body = await readJson(req);
+    const result = await ctx.runMutation(internal.doctors.createDoctor, {
+      ashaWorkerId: token as any,
+      hospitalId: str(body.hospital_id) as any,
+      name: str(body.name),
+      specialization: str(body.specialization),
+      phone: str(body.phone),
+      consultationFeeRupees: num(body.consultation_fee_rupees),
+      availableDays: Array.isArray(body.available_days) ? body.available_days.map(String) : undefined,
+      availableTimes: Array.isArray(body.available_times) ? body.available_times.map(String) : undefined,
+      clientRecordId: str(body.client_record_id),
+    });
+    return json(
+      { doctor: result.doctor, created: result.created },
+      result.created ? 201 : 200
+    );
+  }),
+});
+
+router.route({
+  pathPrefix: "/api/doctors/",
+  method: "DELETE",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const segments = new URL(req.url).pathname.split("/").filter(Boolean);
+    const doctorId = segments[2];
+    if (!doctorId) return errorResponse("Missing doctor ID", 400, "validation_error");
+    const result = await ctx.runMutation(internal.doctors.deleteDoctor, {
+      doctorId: doctorId as any,
+      ashaWorkerId: token as any,
+    });
+    return json({ deleted: result.deleted, id: result.id });
+  }),
+});
+
+// Appointments
+router.route({
+  path: "/api/appointments",
+  method: "GET",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const url = new URL(req.url);
+    const status = url.searchParams.get("status") || undefined;
+    const result = await ctx.runQuery(internal.appointments.listAppointments, {
+      ashaWorkerId: token as any,
+      ...(status ? { status: status as any } : {}),
+    });
+    return json({ appointments: result });
+  }),
+});
+
+router.route({
+  path: "/api/appointments",
+  method: "POST",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const body = await readJson(req);
+    const patientId = str(body.patient_id);
+    if (!patientId) return errorResponse("patient_id is required", 400, "validation_error");
+    const result = await ctx.runMutation(internal.appointments.createAppointment, {
+      ashaWorkerId: token as any,
+      patientId: patientId as any,
+      doctorId: str(body.doctor_id) as any,
+      hospitalId: str(body.hospital_id) as any,
+      doctorName: str(body.doctor_name),
+      hospitalName: str(body.hospital_name),
+      appointmentDate: str(body.appointment_date),
+      appointmentTime: str(body.appointment_time),
+      consultationFeeRupees: num(body.consultation_fee_rupees),
+      amountPaidRupees: num(body.amount_paid_rupees),
+      status: str(body.status) as any,
+      notes: str(body.notes),
+      clientRecordId: str(body.client_record_id),
+    });
+    return json(
+      { appointment: result.appointment, created: result.created },
+      result.created ? 201 : 200
+    );
+  }),
+});
+
+router.route({
+  pathPrefix: "/api/appointments/",
+  method: "PATCH",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const segments = new URL(req.url).pathname.split("/").filter(Boolean);
+    const appointmentId = segments[2];
+    if (!appointmentId) return errorResponse("Missing appointment ID", 400, "validation_error");
+    const body = await readJson(req);
+    const result = await ctx.runMutation(internal.appointments.updateAppointmentStatus, {
+      appointmentId: appointmentId as any,
+      ashaWorkerId: token as any,
+      status: str(body.status) as any,
+    });
+    return json({ id: result.id, status: result.status, updated: result.updated });
+  }),
+});
+
+router.route({
+  pathPrefix: "/api/appointments/",
+  method: "DELETE",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const segments = new URL(req.url).pathname.split("/").filter(Boolean);
+    const appointmentId = segments[2];
+    if (!appointmentId) return errorResponse("Missing appointment ID", 400, "validation_error");
+    const result = await ctx.runMutation(internal.appointments.deleteAppointment, {
+      appointmentId: appointmentId as any,
+      ashaWorkerId: token as any,
+    });
+    return json({ deleted: result.deleted, id: result.id });
+  }),
+});
+
+// Expenses
+router.route({
+  path: "/api/expenses",
+  method: "GET",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const url = new URL(req.url);
+    const type = url.searchParams.get("type") || undefined;
+    const patientId = url.searchParams.get("patient_id") || undefined;
+    const result = await ctx.runQuery(internal.expenses.listExpenses, {
+      ashaWorkerId: token as any,
+      ...(type ? { type: type as any } : {}),
+      ...(patientId ? { patientId: patientId as any } : {}),
+    });
+    return json({ expenses: result });
+  }),
+});
+
+router.route({
+  path: "/api/expenses",
+  method: "POST",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const body = await readJson(req);
+    const result = await ctx.runMutation(internal.expenses.createExpense, {
+      ashaWorkerId: token as any,
+      patientId: str(body.patient_id) as any,
+      appointmentId: str(body.appointment_id) as any,
+      type: str(body.type) as any,
+      amountRupees: num(body.amount_rupees),
+      description: str(body.description),
+      date: str(body.date),
+      clientRecordId: str(body.client_record_id),
+    });
+    return json(
+      { expense: result.expense, created: result.created },
+      result.created ? 201 : 200
+    );
+  }),
+});
+
+router.route({
+  path: "/api/expenses/total",
+  method: "GET",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const url = new URL(req.url);
+    const type = url.searchParams.get("type") || undefined;
+    const patientId = url.searchParams.get("patient_id") || undefined;
+    const result = await ctx.runQuery(internal.expenses.totalExpensesRupees, {
+      ashaWorkerId: token as any,
+      ...(type ? { type: type as any } : {}),
+      ...(patientId ? { patientId: patientId as any } : {}),
+    });
+    return json(result);
+  }),
+});
+
+router.route({
+  pathPrefix: "/api/expenses/",
+  method: "DELETE",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const segments = new URL(req.url).pathname.split("/").filter(Boolean);
+    const expenseId = segments[2];
+    if (!expenseId) return errorResponse("Missing expense ID", 400, "validation_error");
+    const result = await ctx.runMutation(internal.expenses.deleteExpense, {
+      expenseId: expenseId as any,
+      ashaWorkerId: token as any,
+    });
+    return json({ deleted: result.deleted, id: result.id });
+  }),
+});
+
 router.route({
   pathPrefix: "/api/",
   method: "OPTIONS",

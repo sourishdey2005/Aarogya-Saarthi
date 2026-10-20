@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Screen, Patient, PrescriptionScan, HomeVisitTask } from './types';
+import { Screen, Patient, PrescriptionScan, HomeVisitTask, Hospital, Doctor, Appointment, Expense } from './types';
 import { INITIAL_PRESCRIPTION_SCANS, INITIAL_HOME_VISITS } from './data/mockData';
 import {
   createPatient,
@@ -14,6 +14,20 @@ import {
   newClientRecordId,
   resolveApiBase,
   setAuthToken,
+  listHospitals,
+  createHospital,
+  deleteHospital,
+  listDoctors,
+  createDoctor,
+  deleteDoctor,
+  listAppointments,
+  createAppointment,
+  deleteAppointment,
+  updateAppointmentStatus,
+  listExpenses,
+  createExpense,
+  deleteExpense,
+  totalExpensesRupees,
   type AuthWorker,
   type TriageAdvice,
   type TriageResult,
@@ -33,17 +47,23 @@ import { ReferralScreen } from './screens/ReferralScreen';
 import { PatientsScreen } from './screens/PatientsScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { SyncScreen } from './screens/SyncScreen';
+import { HospitalLocatorScreen } from './screens/HospitalLocatorScreen';
+import { DoctorAppointmentScreen } from './screens/DoctorAppointmentScreen';
+import { ExpenseTrackerScreen } from './screens/ExpenseTrackerScreen';
 import { Sidebar } from './components/Sidebar';
 import { useLang } from './i18n/LanguageContext';
 
 /** URL path for every screen of the app. */
 export const SCREEN_PATHS: Record<Screen, string> = {
- home: '/',
- registration: '/registration',
- scan: '/scan',
- referral: '/referral',
- patients: '/patients',
- sync: '/sync',
+  home: '/',
+  registration: '/registration',
+  scan: '/scan',
+  referral: '/referral',
+  patients: '/patients',
+  sync: '/sync',
+  hospitals: '/hospitals',
+  appointments: '/appointments',
+  expenses: '/expenses',
 };
 
 const PATH_TO_SCREEN: Record<string, Screen> = Object.entries(SCREEN_PATHS).reduce(
@@ -111,9 +131,12 @@ export default function App() {
  registration: { hi: ' ', en: 'New Registration' },
  scan: { hi: ' Scan', en: '' },
  referral: { hi: ' ', en: 'Triage & Referral' },
- patients: { hi: 'Patients ', en: 'Patient Directory' },
- sync: { hi: 'Sync', en: 'Sync' },
- };
+  patients: { hi: 'Patients ', en: 'Patient Directory' },
+  sync: { hi: 'Sync', en: 'Sync' },
+  hospitals: { hi: '', en: 'Hospitals' },
+  appointments: { hi: '', en: 'Doctor & Appointment' },
+  expenses: { hi: '', en: 'Expense Tracker' },
+};
  document.title = `Aarogya Sarathi • ${titles[currentScreen][lang]}`;
  }, [currentScreen, lang]);
 
@@ -507,17 +530,29 @@ showToast('Patient registered ✓');
   />
   )}
 
- {currentScreen === 'sync' && (
- <SyncScreen
- isOnline={isOnline}
- onToggleOnline={handleToggleOnline}
- patients={patients}
- prescriptions={prescriptions}
- onSyncAll={handleSyncAll}
- showToast={showToast}
- serverPendingCount={serverPendingCount}
- />
- )}
+  {currentScreen === 'sync' && (
+  <SyncScreen
+  isOnline={isOnline}
+  onToggleOnline={handleToggleOnline}
+  patients={patients}
+  prescriptions={prescriptions}
+  onSyncAll={handleSyncAll}
+  showToast={showToast}
+  serverPendingCount={serverPendingCount}
+  />
+  )}
+
+  {currentScreen === 'hospitals' && (
+  <HospitalLocatorScreen onBack={() => setCurrentScreen('home')} />
+  )}
+
+  {currentScreen === 'appointments' && (
+  <DoctorAppointmentScreen onBack={() => setCurrentScreen('home')} />
+  )}
+
+  {currentScreen === 'expenses' && (
+  <ExpenseTrackerScreen onBack={() => setCurrentScreen('home')} />
+  )}
  </main>
  </div>
 

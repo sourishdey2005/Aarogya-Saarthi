@@ -1,4 +1,4 @@
-export type Screen = 'home' | 'registration' | 'scan' | 'referral' | 'patients' | 'sync';
+export type Screen = 'home' | 'registration' | 'scan' | 'referral' | 'patients' | 'sync' | 'hospitals' | 'appointments' | 'expenses';
 
 export interface Symptom {
  id: string;
@@ -64,12 +64,68 @@ export interface PrescriptionScan {
 }
 
 export interface HomeVisitTask {
- id: string;
- familyHead: string;
- ward: string;
- reasonHi: string;
- reasonEn: string;
- dueTime: string;
- isUrgent: boolean;
- completed: boolean;
+  id: string;
+  familyHead: string;
+  ward: string;
+  reasonHi: string;
+  reasonEn: string;
+  dueTime: string;
+  isUrgent: boolean;
+  completed: boolean;
+}
+
+export interface Hospital {
+  id: string;
+  asha_worker_id: string;
+  name: string;
+  type: "govt" | "private";
+  village: string | null;
+  address: string | null;
+  phone: string | null;
+  emergency: boolean | null;
+  specialties: string[] | null;
+  distance_km: number | null;
+}
+
+export interface Doctor {
+  id: string;
+  asha_worker_id: string;
+  hospital_id: string | null;
+  name: string;
+  specialization: string;
+  phone: string | null;
+  consultation_fee_rupees: number | null;
+  available_days: string[] | null;
+  available_times: string[] | null;
+}
+
+export interface Appointment {
+  id: string;
+  asha_worker_id: string;
+  patient_id: string;
+  doctor_id: string | null;
+  hospital_id: string | null;
+  doctor_name: string;
+  hospital_name: string;
+  appointment_date: string;
+  appointment_time: string;
+  consultation_fee_rupees: number | null;
+  amount_paid_rupees: number | null;
+  status: "pending" | "confirmed" | "completed" | "cancelled";
+  notes: string | null;
+}
+
+export interface Expense {
+  id: string;
+  asha_worker_id: string;
+  patient_id: string | null;
+  appointment_id: string | null;
+  type: "consultation" | "medicine" | "travel" | "other";
+  amount_rupees: number;
+  description: string | null;
+  date: string;
+}
+
+export interface ExpenseTotal {
+  total_rupees: number;
 }
