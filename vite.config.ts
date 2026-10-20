@@ -26,6 +26,9 @@ function spaFallback(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
+  // Read Convex URL from environment (Vercel sets this at build time)
+  const convexUrl = process.env.CONVEX_URL || process.env.VITE_CONVEX_URL || "";
+
   return {
     plugins: [
       react(),
@@ -36,6 +39,9 @@ export default defineConfig(({ mode }) => {
       ...(mode === 'https' ? [basicSsl()] : []),
       spaFallback(),
     ],
+    define: {
+      __CONVEX_URL__: JSON.stringify(convexUrl),
+    },
     resolve: {
       alias: {
         '@': path.resolve(import.meta.dirname, '.'),

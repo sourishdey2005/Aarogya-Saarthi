@@ -1,65 +1,41 @@
 /**
  * Convex-backed API client for Aarogya Saarthi.
  *
- * Fetches the Convex deployment URL from a server-side endpoint to avoid
- * exposing it in the client bundle (no VITE_ prefix needed).
+ * The Convex URL is embedded at build time via Vite's define config.
+ * Falls back to local development server if not set.
  */
 
 import { enqueueRequest } from "./offlineQueue";
 
+/** Base URL for Convex HTTP actions - injected at build time via Vite define. */
+declare const __CONVEX_URL__: string;
+
 let convexUrlCache: string | null = null;
-let convexUrlPromise: Promise<string> | null = null;
 
-/** Fetches the Convex URL from the server-side endpoint. */
-async function fetchConvexUrl(): Promise<string> {
+/** Resolves the Convex base URL. */
+export function resolveApiBase(): string {
   if (convexUrlCache) return convexUrlCache;
-  if (convexUrlPromise) return convexUrlPromise;
 
-  convexUrlPromise = (async () => {
-    try {
-      const res = await fetch("/api/convex-url");
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Failed to fetch Convex URL: ${res.status} - ${text.slice(0, 200)}`);
-      }
-      const contentType = res.headers.get("content-type") || "";
-      if (!contentType.includes("application/json")) {
-        const text = await res.text();
-        throw new Error(`Expected JSON from /api/convex-url, got ${contentType}: ${text.slice(0, 200)}`);
-      }
-      const data = await res.json();
-      if (!data.url) {
-        throw new Error(`Invalid response from /api/convex-url: ${JSON.stringify(data)}`);
-      }
-      const url = data.url.replace(/\/+$/, "");
-      convexUrlCache = url;
-      return url;
-    } catch (error) {
-      convexUrlPromise = null;
-      throw error;
-    }
-  })();
+  // Build-time injected value (from Vite define)
+  const buildTimeUrl = (typeof __CONVEX_URL__ !== "undefined" && __CONVEX_URL__) || "";
 
-  return convexUrlPromise!;
-}
-
-/** Base URL for Convex HTTP actions. */
-export async function resolveApiBase(): Promise<string> {
   // Allow override via env for local development
   const env = (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env) || {};
-  if (env.CONVEX_URL) return env.CONVEX_URL.replace(/\/+$/, "");
+  const fromEnv = env.CONVEX_URL?.trim() || env.VITE_CONVEX_URL?.trim() || "";
 
-  // Fallback to server-provided URL
-  try {
-    return await fetchConvexUrl();
-  } catch (error) {
-    console.error("[api] Failed to resolve Convex URL:", error);
+  const url = (fromEnv || buildTimeUrl || "").replace(/\/+$/, "");
+
+  if (!url) {
     // Fallback for local development
     if (typeof window !== "undefined" && /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname)) {
-      return "http://127.0.0.1:3210";
+      convexUrlCache = "http://127.0.0.1:3210";
+      return convexUrlCache;
     }
-    throw new Error(`Cannot connect to backend: ${error instanceof Error ? error.message : String(error)}`);
+    throw new Error("Convex URL not configured. Set CONVEX_URL or VITE_CONVEX_URL environment variable.");
   }
+
+  convexUrlCache = url;
+  return url;
 }
 
 const TOKEN_STORAGE_KEY = "aarogya.auth.token";
@@ -184,7 +160,7 @@ interface RequestOptions {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = getAuthToken();
-  const baseUrl = await resolveApiBase();
+  const baseUrl = resolveApiBase();
   let response: Response;
 
   try {
@@ -324,7 +300,7 @@ export async function postTriage(input: {
 
 export async function checkBackend(): Promise<boolean> {
   try {
-    const baseUrl = await resolveApiBase();
+    const baseUrl = resolveApiBase();
     const response = await fetch(`${baseUrl}/api/health`, {
       method: "GET",
       headers: getAuthToken() ? { authorization: `Bearer ${getAuthToken()}` } : {},
