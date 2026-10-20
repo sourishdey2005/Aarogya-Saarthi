@@ -55,10 +55,11 @@ export const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
  const [ward, setWard] = useState('');
  const [isRecording, setIsRecording] = useState(false);
  const [isManualType, setIsManualType] = useState(false);
- const [transcribedText, setTranscribedText] = useState('');
- const [detectedSymptoms, setDetectedSymptoms] = useState<Symptom[]>([]);
- const [showAddSymptom, setShowAddSymptom] = useState(false);
- const [isSaving, setIsSaving] = useState(false);
+  const [transcribedText, setTranscribedText] = useState('');
+  const [detectedSymptoms, setDetectedSymptoms] = useState<Symptom[]>([]);
+  const [customSymptom, setCustomSymptom] = useState('');
+  const [showAddSymptom, setShowAddSymptom] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
  // Auto-simulate speech recognition waveform or start Web Speech Recognition if available
  useEffect(() => {
@@ -107,17 +108,32 @@ export const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
  showToast('Symptom removed');
  };
 
- const handleAddSymptom = (nameHi: string, nameEn: string) => {
- const newSym: Symptom = {
- id: `sym-${Date.now()}`,
- nameHi,
- nameEn,
- severity: 'moderate'
- };
- setDetectedSymptoms((prev) => [...prev, newSym]);
- setShowAddSymptom(false);
- showToast(`${nameHi} symptom added`);
- };
+  const handleAddSymptom = (nameHi: string, nameEn: string) => {
+  const newSym: Symptom = {
+  id: `sym-${Date.now()}`,
+  nameHi,
+  nameEn,
+  severity: 'moderate'
+  };
+  setDetectedSymptoms((prev) => [...prev, newSym]);
+  setShowAddSymptom(false);
+  showToast(`${nameHi} symptom added`);
+  };
+
+  const addCustomSymptom = () => {
+  const text = customSymptom.trim();
+  if (!text) return;
+  const newSym: Symptom = {
+  id: `sym-${Date.now()}`,
+  nameHi: text,
+  nameEn: text,
+  severity: 'moderate'
+  };
+  setDetectedSymptoms((prev) => [...prev, newSym]);
+  setCustomSymptom('');
+  showToast(`${text} symptom added`);
+  };
+
 
  const handleReplayVoice = () => {
  setIsRecording(true);
@@ -397,10 +413,29 @@ export const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
  </button>
  </div>
  </div>
- )}
- </div>
+  )}
+  </div>
 
- {/* Symptom chips */}
+  {/* Type a symptom */}
+  <div className="relative mt-4">
+  <input
+    type="text"
+    value={customSymptom}
+    onChange={(e) => setCustomSymptom(e.target.value)}
+    placeholder="Type a symptom (e.g. fever, cough) and press Add"
+    className="w-full bg-[#eff4ff] pl-4 pr-10 py-2.5 rounded-xl text-[14px] text-[#121c2a] placeholder-[#8a7266] border border-[#d9e3f6] focus:outline-none focus:ring-2 focus:ring-[#e8762b] focus:bg-white"
+  />
+  <button
+    onClick={addCustomSymptom}
+    disabled={!customSymptom.trim()}
+    className="absolute right-2 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#e8762b] text-white rounded-lg text-[12px] font-bold hover:bg-[#d9730e] active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+    type="button"
+  >
+    Add
+  </button>
+  </div>
+
+  {/* Symptom chips */}
  <div>
  <div className="flex items-center justify-between mb-2">
  <span className="text-[11px] font-semibold text-[#475569] uppercase">Identified symptoms</span>

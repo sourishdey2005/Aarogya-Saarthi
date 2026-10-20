@@ -14,9 +14,9 @@ export interface QueuedRequest {
  /** Local id of the queue entry. */
  id: string;
  url: string;
- method: 'POST' | 'PATCH';
- body: string;
- createdAt: number;
+  method: 'POST' | 'PATCH' | 'DELETE';
+  body: string;
+  createdAt: number;
  attempts: number;
  lastError?: string;
 }
@@ -95,9 +95,9 @@ function writeLocal(items: QueuedRequest[]): void {
 
 /* ------------------------------------------------------------- public API --- */
 export async function enqueueRequest(input: {
- url: string;
- method: 'POST' | 'PATCH';
- body: string;
+  url: string;
+  method: 'POST' | 'PATCH' | 'DELETE';
+  body: string;
 }): Promise<QueuedRequest> {
  const entry: QueuedRequest = {
  id:

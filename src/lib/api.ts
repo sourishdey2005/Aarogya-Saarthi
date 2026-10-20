@@ -253,14 +253,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 async function write<T>(
- path: string,
- body: Record<string, unknown>,
- method: "POST" | "PATCH" = "POST"
+  path: string,
+  body: Record<string, unknown> | undefined,
+  method: "POST" | "PATCH" | "DELETE" = "POST"
 ): Promise<ApiResult<T>> {
- const payload = {
- client_record_id: newClientRecordId(),
- ...body,
- };
+  const payload = {
+  client_record_id: newClientRecordId(),
+  ...body,
+  };
 
  try {
  const data = await request<T>(path, { method, body: payload });
@@ -290,9 +290,15 @@ export interface CreatePatientInput {
 }
 
 export async function createPatient(
- input: CreatePatientInput
+  input: CreatePatientInput
 ): Promise<ApiResult<{ patient: ApiPatient; created: boolean }>> {
- return write("/api/patients", input as unknown as Record<string, unknown>);
+  return write("/api/patients", input as unknown as Record<string, unknown>);
+}
+
+export async function deletePatient(
+  patientId: string
+): Promise<ApiResult<{ deleted: boolean; id: string }>> {
+  return write(`/api/patients/${encodeURIComponent(patientId)}`, undefined, "DELETE");
 }
 
 export async function listPatients(): Promise<ApiPatient[]> {

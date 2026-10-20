@@ -252,6 +252,23 @@ router.route({
 
 router.route({
   pathPrefix: "/api/patients/",
+  method: "DELETE",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const segments = new URL(req.url).pathname.split("/").filter(Boolean);
+    const patientId = segments[2];
+    if (!patientId) return errorResponse("Missing patient ID", 400, "validation_error");
+    const result = await ctx.runMutation(internal.patients.deletePatient, {
+      patientId: patientId as any,
+      ashaWorkerId: token as any,
+    });
+    return json({ deleted: result.deleted, id: result.id });
+  }),
+});
+
+router.route({
+  pathPrefix: "/api/patients/",
   method: "GET",
   handler: safe(async (ctx, req) => {
     const token = bearerToken(req);

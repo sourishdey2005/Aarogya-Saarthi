@@ -78,6 +78,42 @@ export const createPatient = mutation({
   },
 });
 
+export const deletePatient = mutation({
+  args: {
+    patientId: v.id("patients"),
+    ashaWorkerId: v.id("ashaWorkers"),
+  },
+  handler: async (ctx, args) => {
+    const { patientId, ashaWorkerId } = args;
+
+    const patient = await ctx.db.get(patientId);
+    if (!patient || patient.ashaWorkerId !== ashaWorkerId) {
+      throw new Error("Patient not found for this worker");
+    }
+
+    // Remove related symptom logs and prescriptions for this patient.
+    const symptomLogs = await ctx.db
+      .query("symptomLogs")
+      .withIndex("by_patient", (q) => q.eq("patientId", patientId))
+      .collect();
+    for (const log of symptomLogs) {
+      await ctx.db.delete(log._id);
+    }
+
+    const prescriptions = await ctx.db
+      .query("prescriptions")
+      .withIndex("by_patient", (q) => q.eq("patientId", patientId))
+      .collect();
+    for (const rx of prescriptions) {
+      await ctx.db.delete(rx._id);
+    }
+
+    await ctx.db.delete(patientId);
+
+    return { id: patientId, deleted: true };
+  },
+});
+
 export const getPatientTimeline = query({
   args: { patientId: v.id("patients"), ashaWorkerId: v.id("ashaWorkers") },
   handler: async (ctx, args) => {

@@ -3,19 +3,20 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Screen, Patient, PrescriptionScan, HomeVisitTask } from './types';
 import { INITIAL_PRESCRIPTION_SCANS, INITIAL_HOME_VISITS } from './data/mockData';
 import {
- createPatient,
- getAuthToken,
- getMe,
- getStoredWorker,
- setStoredWorker,
- getSyncPending,
- listPatients,
- newClientRecordId,
- resolveApiBase,
- setAuthToken,
- type AuthWorker,
- type TriageAdvice,
- type TriageResult,
+  createPatient,
+  deletePatient,
+  getAuthToken,
+  getMe,
+  getStoredWorker,
+  setStoredWorker,
+  getSyncPending,
+  listPatients,
+  newClientRecordId,
+  resolveApiBase,
+  setAuthToken,
+  type AuthWorker,
+  type TriageAdvice,
+  type TriageResult,
 } from './lib/api';
 import { flushQueue, queuedCount } from './lib/offlineQueue';
 import { Header } from './components/Header';
@@ -263,11 +264,11 @@ export default function App() {
  }, [flushOfflineQueue]);
 
  const handleToggleOnline = () => {
- setIsOnline((prev) => {
- const next = !prev;
- showToast(next ? 'Online : active' : ' : ');
- return next;
- });
+  setIsOnline((prev) => {
+    const next = !prev;
+    showToast(next ? 'Online mode active' : 'Offline mode active');
+    return next;
+  });
  };
 
  const handleToggleVisitComplete = (id: string) => {
@@ -327,17 +328,17 @@ export default function App() {
  blood_group: newPatient.bloodGroup,
  client_id: clientId,
  });
- if (result.queued) {
- showToast(': Patients , Sync ');
- } else {
- void refreshPendingCount();
- }
- } catch {
- showToast('Patients (Could not save the patient)');
- }
+  if (result.queued) {
+    showToast('Patient saved offline, syncs automatically');
+  } else {
+    void refreshPendingCount();
+  }
+} catch {
+  showToast('Could not save the patient');
+}
 
- setCurrentScreen('referral');
- showToast('Patients ! ✓');
+setCurrentScreen('referral');
+showToast('Patient registered ✓');
 
  return newPatient;
  };
@@ -348,7 +349,25 @@ export default function App() {
  void refreshPendingCount();
  };
 
- const handleSyncPatient = (id: string) => {
+  const handleDeletePatient = async (patient: Patient) => {
+    if (!window.confirm(`Delete patient "${patient.nameHi}"? This removes all their symptom logs and prescriptions.`)) {
+      return;
+    }
+    try {
+      await deletePatient(patient.id);
+      setPatients((prev) => prev.filter((p) => p.id !== patient.id));
+      if (selectedPatient.id === patient.id) {
+        setSelectedPatient(EMPTY_PATIENT);
+        setCurrentScreen('home');
+      }
+      void refreshPendingCount();
+      showToast('Patient deleted');
+    } catch {
+      showToast('Could not delete patient');
+    }
+  };
+
+  const handleSyncPatient = (id: string) => {
  setPatients((prev) =>
  prev.map((p) => (p.id === id ? { ...p, isSynced: true } : p))
  );
@@ -361,11 +380,11 @@ export default function App() {
  setPatients((prev) => prev.map((p) => ({ ...p, isSynced: true })));
  setPrescriptions((prev) => prev.map((rx) => ({ ...rx, isSynced: true })));
  setIsSyncing(false);
- showToast(
- result.flushed > 0
- ? `✓ ${result.flushed} Sync (${result.flushed} records synced)`
- : ' Sync (All records already synced)'
- );
+  showToast(
+    result.flushed > 0
+      ? `✓ ${result.flushed} records synced`
+      : 'All records already synced'
+  );
  };
 
  const handleSignOut = () => {
@@ -476,16 +495,17 @@ export default function App() {
  />
  )}
 
- {currentScreen === 'patients' && (
- <PatientsScreen
- patients={patients}
- onSelectPatient={(p) => {
- setSelectedPatient(p);
- setCurrentScreen('referral');
- }}
- onNavigate={setCurrentScreen}
- />
- )}
+  {currentScreen === 'patients' && (
+  <PatientsScreen
+  patients={patients}
+  onSelectPatient={(p) => {
+  setSelectedPatient(p);
+  setCurrentScreen('referral');
+  }}
+  onNavigate={setCurrentScreen}
+  onDeletePatient={handleDeletePatient}
+  />
+  )}
 
  {currentScreen === 'sync' && (
  <SyncScreen
