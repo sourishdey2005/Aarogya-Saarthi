@@ -12,6 +12,7 @@ import type * as ai from "../ai.js";
 import type * as auth from "../auth.js";
 import type * as helpers from "../helpers.js";
 import type * as http from "../http.js";
+import type * as ocr from "../ocr.js";
 import type * as patients from "../patients.js";
 import type * as prescriptions from "../prescriptions.js";
 import type * as symptoms from "../symptoms.js";
@@ -29,6 +30,7 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   helpers: typeof helpers;
   http: typeof http;
+  ocr: typeof ocr;
   patients: typeof patients;
   prescriptions: typeof prescriptions;
   symptoms: typeof symptoms;

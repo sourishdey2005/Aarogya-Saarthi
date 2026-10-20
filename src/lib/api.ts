@@ -329,6 +329,29 @@ export async function postTriage(input: {
   return request<TriageResponse>("/api/triage", { method: "POST", body: input });
 }
 
+export interface OcrMedicine {
+  name: string;
+  strength: string;
+  frequency: string;
+  duration: string;
+  instructions: string;
+}
+
+export interface OcrResult {
+  medicines: OcrMedicine[];
+  ocr_text: string;
+  ocr_confidence: number;
+  source: string;
+}
+
+/** Reads a prescription photo with the AI vision model (requires auth). */
+export async function ocrPrescription(input: {
+  image_base64: string;
+  mime_type?: string;
+}): Promise<OcrResult> {
+  return request<OcrResult>("/api/ocr", { method: "POST", body: input });
+}
+
 /** Fetches the worker tied to the stored auth token (null when signed out). */
 export async function getMe(): Promise<AuthWorker | null> {
   if (!getAuthToken()) return null;

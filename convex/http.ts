@@ -342,6 +342,27 @@ router.route({
 });
 
 router.route({
+  path: "/api/ocr",
+  method: "POST",
+  handler: safe(async (ctx, req) => {
+    const token = bearerToken(req);
+    if (!token) return errorResponse("Missing Authorization header", 401, "missing_token");
+    const body = await readJson(req);
+
+    const imageBase64 = str(body.image_base64) ?? str(body.imageBase64);
+    if (!imageBase64) {
+      return errorResponse("image_base64 is required", 400, "validation_error");
+    }
+
+    const result = await ctx.runAction(internal.ocr.extractPrescription, {
+      imageBase64,
+      mimeType: str(body.mime_type) ?? str(body.mimeType),
+    });
+    return json(result);
+  }),
+});
+
+router.route({
   path: "/api/triage",
   method: "POST",
   handler: safe(async (ctx, req) => {

@@ -6,13 +6,18 @@
  * the same code runs locally (`.env`) and on Convex Cloud (`npx convex env set`).
  */
 
+export type ChatContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 export interface ChatMessage {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | ChatContentPart[];
 }
 
 export const DEFAULT_NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1";
 export const DEFAULT_NVIDIA_MODEL = "nvidia/nemotron-3.5-lightning-30b-a3b";
+export const DEFAULT_NVIDIA_VISION_MODEL = "meta/llama-3.2-90b-vision-instruct";
 
 function readEnv(name: string): string | undefined {
   const value = process.env[name];
@@ -61,6 +66,23 @@ export function isNvidiaConfigured(): boolean {
   return Boolean(nvidiaConfig().apiKey);
 }
 
+/**
+ * Vision configuration (prescription OCR). Vision models do not support the
+ * reasoning extras, so thinking is off unless explicitly enabled.
+ */
+export function nvidiaVisionConfig(): NvidiaConfig {
+  const base = nvidiaConfig();
+  return {
+    ...base,
+    model: readEnv("NVIDIA_VISION_MODEL") ?? DEFAULT_NVIDIA_VISION_MODEL,
+    temperature: readNumber("NVIDIA_VISION_TEMPERATURE", 0.2),
+    topP: readNumber("NVIDIA_VISION_TOP_P", 0.9),
+    maxTokens: readNumber("NVIDIA_VISION_MAX_TOKENS", 4096),
+    reasoningBudget: 0,
+    enableThinking: readBoolean("NVIDIA_VISION_ENABLE_THINKING", false),
+  };
+}
+
 export interface NvidiaChatOptions {
   messages: ChatMessage[];
   temperature?: number;
@@ -88,18 +110,21 @@ interface ChatCompletionPayload {
 }
 
 function buildRequestBody(config: NvidiaConfig, options: NvidiaChatOptions) {
-  return {
+  const body: Record<string, unknown> = {
     model: config.model,
     messages: options.messages,
     temperature: options.temperature ?? config.temperature,
     top_p: options.topP ?? config.topP,
     max_tokens: options.maxTokens ?? config.maxTokens,
-    reasoning_budget: options.reasoningBudget ?? config.reasoningBudget,
-    chat_template_kwargs: {
-      enable_thinking: options.enableThinking ?? config.enableThinking,
-    },
     stream: false,
   };
+
+  if (options.enableThinking ?? config.enableThinking) {
+    body.reasoning_budget = options.reasoningBudget ?? config.reasoningBudget;
+    body.chat_template_kwargs = { enable_thinking: true };
+  }
+
+  return body;
 }
 
 async function postCompletion(
@@ -120,8 +145,10 @@ async function postCompletion(
  * Calls the model and returns both the answer (`content`) and the model's
  * private chain of thought (`reasoning`, when the model exposes it).
  */
-export async function nvidiaChat(options: NvidiaChatOptions): Promise<NvidiaChatResult> {
-  const config = nvidiaConfig();
+export async function nvidiaChat(
+  options: NvidiaChatOptions,
+  config: NvidiaConfig = nvidiaConfig()
+): Promise<NvidiaChatResult> {
   if (!config.apiKey) {
     throw new Error("NVIDIA_API_KEY is not configured");
   }
@@ -154,6 +181,13 @@ export async function nvidiaChat(options: NvidiaChatOptions): Promise<NvidiaChat
     reasoning: message?.reasoning_content ?? message?.reasoning ?? "",
     model: config.model,
   };
+}
+
+/** Vision call for prescription photos (image_url content parts). */
+export async function nvidiaVisionChat(
+  options: NvidiaChatOptions
+): Promise<NvidiaChatResult> {
+  return nvidiaChat(options, nvidiaVisionConfig());
 }
 
 /** Pulls the first JSON object out of a model answer (handles code fences). */

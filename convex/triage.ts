@@ -5,6 +5,7 @@ import {
   isNvidiaConfigured,
   nvidiaChat,
   nvidiaConfig,
+  nvidiaVisionConfig,
 } from "./ai";
 
 type TriageResult = "home_care" | "visit_phc" | "refer_immediately";
@@ -219,6 +220,7 @@ export const getHealth = query({
       nvidia_configured: isNvidiaConfigured(),
       ai_provider: "nvidia-nim",
       ai_model: config.model,
+      ai_vision_model: nvidiaVisionConfig().model,
       time: new Date().toISOString(),
     };
   },

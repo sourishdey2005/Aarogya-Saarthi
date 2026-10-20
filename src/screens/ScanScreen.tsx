@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { PrescriptionScan } from '../types';
 import { playSpokenText } from '../utils/speech';
 import { useCamera } from '../utils/useCamera';
-import { postPrescription } from '../lib/api';
+import { ocrPrescription, postPrescription, type OcrMedicine } from '../lib/api';
 
 interface ScanScreenProps {
   onBack: () => void;
@@ -37,6 +37,41 @@ async function imageToBase64(source: string, maxWidth = 1024): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.82);
 }
 
+/**
+ * Prescription text must stay legible, so OCR gets a larger image than the
+ * archived copy. Fall back to smaller widths to keep the request under Convex's
+ * argument size limit.
+ */
+async function imageToBase64ForOcr(source: string): Promise<string> {
+  for (const width of [1400, 1200, 1000]) {
+    const encoded = await imageToBase64(source, width);
+    if (encoded.length <= 650_000) return encoded;
+  }
+  return imageToBase64(source, 900);
+}
+
+interface ScannedMedicine {
+  id: string;
+  name: string;
+  dosageHi: string;
+  spokenHi: string;
+}
+
+function toScannedMedicine(medicine: OcrMedicine, index: number): ScannedMedicine {
+  const dosageParts = [medicine.frequency, medicine.duration, medicine.instructions].filter(
+    Boolean
+  );
+  const name = [medicine.name, medicine.strength].filter(Boolean).join(' ');
+  const dosageHi = dosageParts.join(' • ') || 'खुराक पर्चे पर देखें (Check the slip)';
+
+  return {
+    id: `ocr-${Date.now()}-${index}`,
+    name,
+    dosageHi,
+    spokenHi: `${medicine.name}${medicine.strength ? `, ${medicine.strength}` : ''}. ${dosageHi}`,
+  };
+}
+
 export const ScanScreen: React.FC<ScanScreenProps> = ({
   onBack,
   onSavePrescription,
@@ -48,11 +83,13 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
   const [isCapturing, setIsCapturing] = useState(false);
   const [activeSpeakingMedId, setActiveSpeakingMedId] = useState<string | null>(null);
   const [isAudioGuideActive, setIsAudioGuideActive] = useState(false);
-  const [scanConfidence, setScanConfidence] = useState(94);
+  const [scanConfidence, setScanConfidence] = useState(0);
   const [capturedImage, setCapturedImage] = useState<string | null>(null);
   const [imageSource, setImageSource] = useState<'camera' | 'gallery' | null>(null);
   const [isDevicePickerOpen, setIsDevicePickerOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [medicines, setMedicines] = useState<ScannedMedicine[]>([]);
+  const [ocrText, setOcrText] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
   const objectUrlRef = useRef<string | null>(null);
@@ -60,27 +97,6 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
   const camera = useCamera();
   const { status: cameraStatus, error: cameraError, devices: cameraDevices } = camera;
   const activeDevice = cameraDevices.find((d) => d.isActive);
-
-  const [medicines, setMedicines] = useState([
-    {
-      id: 'm-1',
-      name: 'Paracetamol 500mg',
-      dosageHi: 'दिन में 3 बार (3 times a day) • 3 दिन',
-      spokenHi: 'पैरासिटामोल पांच सौ मिलीग्राम, दिन में तीन बार, तीन दिन तक खाना खाने के बाद लें।'
-    },
-    {
-      id: 'm-2',
-      name: 'Cetirizine 10mg',
-      dosageHi: 'रात में 1 बार (Once at night)',
-      spokenHi: 'सिट्रीजीन दस मिलीग्राम, रात में एक बार सोने से पहले लें।'
-    },
-    {
-      id: 'm-3',
-      name: 'ORS घोल',
-      dosageHi: 'पानी के साथ (Mix in 1L water)',
-      spokenHi: 'ओआरएस घोल, एक लीटर साफ उबले हुए ठंडे पानी में पूरा पैकेट मिलाकर थोड़ा-थोड़ा पिएं।'
-    }
-  ]);
 
   // Ask for camera access as soon as the scan screen opens.
   useEffect(() => {
@@ -97,20 +113,47 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
   );
 
   const runOcr = useCallback(
-    (image: string | null, source: 'camera' | 'gallery') => {
+    async (image: string | null, source: 'camera' | 'gallery') => {
       setCapturedImage(image);
       setImageSource(source);
-      setIsCapturing(true);
-      showToast('पर्चा स्कैन हो रहा है...');
 
-      window.setTimeout(() => {
-        setIsCapturing(false);
-        setScanConfidence(source === 'camera' ? 96 : 92);
-        showToast('पर्चे से ३ दवाइयां सफलतापूर्वक पहचानी गईं ✓');
+      if (!image) {
+        showToast('फोटो नहीं मिली — गैलरी से पर्चा चुनें (No photo captured)');
+        return;
+      }
+
+      setIsCapturing(true);
+      setMedicines([]);
+      setOcrText('');
+      setScanConfidence(0);
+      showToast('पर्चा पढ़ा जा रहा है... (Reading prescription)');
+
+      try {
+        const imageBase64 = await imageToBase64ForOcr(image);
+        const result = await ocrPrescription({
+          image_base64: imageBase64,
+          mime_type: 'image/jpeg',
+        });
+
+        const scanned = result.medicines.map(toScannedMedicine);
+        setMedicines(scanned);
+        setOcrText(result.ocr_text);
+        setScanConfidence(result.ocr_confidence);
+        showToast(`पर्चे से ${scanned.length} दवाइयां पहचानी गईं ✓`);
+
         window.setTimeout(() => {
           drawerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         }, 120);
-      }, 700);
+      } catch (error) {
+        setScanConfidence(0);
+        showToast(
+          error instanceof Error
+            ? `स्कैन विफल: ${error.message}`
+            : 'स्कैन विफल (Scan failed)'
+        );
+      } finally {
+        setIsCapturing(false);
+      }
     },
     [showToast]
   );
@@ -142,18 +185,22 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
   const handleCapture = () => {
     const shot = camera.capture();
     if (shot) {
-      runOcr(shot, 'camera');
+      void runOcr(shot, 'camera');
       return;
     }
 
-    // No live camera (desktop / permission denied) - fall back to the demo slip.
-    runOcr(null, 'camera');
+    // No live camera (desktop / permission denied) - ask for a gallery photo.
+    showToast('कैमरा उपलब्ध नहीं — गैलरी से पर्चा चुनें (Pick from gallery)');
+    fileInputRef.current?.click();
   };
 
   const handleRetake = async () => {
     setCapturedImage(null);
     setImageSource(null);
-    setScanConfidence(94);
+    setScanConfidence(0);
+    setMedicines([]);
+    setOcrText('');
+    setIsCapturing(false);
     if (!camera.isLive) {
       await camera.start();
     }
@@ -193,13 +240,18 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
       if (objectUrlRef.current) URL.revokeObjectURL(objectUrlRef.current);
       const url = URL.createObjectURL(file);
       objectUrlRef.current = url;
-      runOcr(url, 'gallery');
+      void runOcr(url, 'gallery');
     }
     // Allow selecting the same file again.
     e.target.value = '';
   };
 
   const handleSave = async () => {
+    if (medicines.length === 0) {
+      showToast('पहले पर्चा स्कैन करें (Scan a prescription first)');
+      return;
+    }
+
     const newScan: PrescriptionScan = {
       id: `rx-${Date.now()}`,
       patientName: 'कमला देवी (Kamla Devi)',
@@ -238,14 +290,14 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
 
     try {
       const imageBase64 = capturedImage ? await imageToBase64(capturedImage) : null;
-      const ocrText = medicines
-        .map((medicine) => `${medicine.name} - ${medicine.dosageHi}`)
-        .join('\n');
+      const ocrTextValue =
+        ocrText ||
+        medicines.map((medicine) => `${medicine.name} - ${medicine.dosageHi}`).join('\n');
 
       const result = await postPrescription({
         patient_id: patientId,
         image_base64: imageBase64,
-        ocr_text: ocrText,
+        ocr_text: ocrTextValue,
         ocr_confidence: scanConfidence,
         captured_at: new Date().toISOString(),
       });
@@ -288,7 +340,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
         </div>
         <div className="flex items-center gap-1.5 bg-[#8df9ac]/30 px-3 py-1.5 rounded-full border border-[#8df9ac]">
           <span className="w-2 h-2 rounded-full bg-[#006d38] animate-pulse"></span>
-          <span className="font-label-sm text-[12px] font-bold text-[#006d38]">ऑफ़लाइन OCR</span>
+          <span className="font-label-sm text-[12px] font-bold text-[#006d38]">AI OCR</span>
         </div>
       </div>
 
@@ -334,7 +386,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
 
         {/* Shutter flash effect */}
         {isCapturing && (
-          <div className="absolute inset-0 bg-white z-30 opacity-80 animate-ping"></div>
+          <div className="absolute inset-0 bg-white/20 z-30 animate-pulse"></div>
         )}
 
         {/* Glowing Scan Line Laser Overlay */}
@@ -579,7 +631,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
           <button
             aria-label="Take picture"
             onClick={handleCapture}
-            disabled={cameraStatus === 'requesting'}
+            disabled={cameraStatus === 'requesting' || isCapturing}
             className="relative w-[84px] h-[84px] rounded-full bg-white p-1.5 shadow-[0_4px_16px_rgba(232,118,43,0.35)] active:scale-90 transition-transform disabled:opacity-60"
             type="button"
           >
@@ -642,7 +694,7 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
               check_circle
             </span>
             <span className="font-label-sm text-[12px] font-bold">
-              {scanConfidence}% भरोसा
+              {medicines.length > 0 ? `${scanConfidence}% भरोसा` : '—'}
             </span>
           </div>
         </div>
@@ -668,6 +720,19 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
 
         {/* Parsed Medicine Rows with Audio Cue and Clear Visual Tags */}
         <div className="flex flex-col gap-2">
+          {medicines.length === 0 && (
+            <div className="flex flex-col items-center text-center gap-1 rounded-xl bg-[#eff4ff] border border-dashed border-[#d9e3f6] px-4 py-6">
+              <span className="material-symbols-outlined text-[28px] text-[#8a97a8]">
+                document_scanner
+              </span>
+              <span className="font-label-md text-[13px] font-semibold text-[#574238]">
+                अभी कोई पर्चा नहीं पढ़ा गया
+              </span>
+              <span className="font-label-sm text-[11px] text-[#8a97a8]">
+                Take a photo or pick one from the gallery to extract medicines
+              </span>
+            </div>
+          )}
           {medicines.map((med, idx) => (
             <div
               key={med.id}
