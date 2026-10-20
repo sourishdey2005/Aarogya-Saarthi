@@ -26,8 +26,8 @@ function spaFallback(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  // Read Convex URL from environment (Vercel sets this at build time)
-  const convexUrl = process.env.CONVEX_URL || process.env.VITE_CONVEX_URL || "";
+  // Hardcoded Convex Cloud URL - works without any Vercel env vars
+  const convexUrl = "https://fabulous-magpie-388.convex.cloud";
 
   return {
     plugins: [
