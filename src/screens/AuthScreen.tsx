@@ -7,7 +7,7 @@
  */
 import React, { useState } from 'react';
 import { useTranslate } from '../i18n/LanguageContext';
-import { setAuthToken } from '../lib/api';
+import { setAuthToken, API_BASE_URL } from '../lib/api';
 
 interface AuthScreenProps {
   onBack: () => void;
@@ -33,7 +33,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onBack, onSignedIn, show
     setIsBusy(true);
     setError(null);
 
-    const url = mode === 'signup' ? '/api/auth/signup' : '/api/auth/login';
+    const url = mode === 'signup' ? `${API_BASE_URL}/api/auth/signup` : `${API_BASE_URL}/api/auth/login`;
     const body =
       mode === 'signup'
         ? {
