@@ -1,32 +1,52 @@
 /**
  * Convex-backed API client for Aarogya Saarthi.
  *
- * Replaces the previous REST API client with Convex HTTP actions.
- * The Convex deployment URL is configured via VITE_CONVEX_URL.
+ * Fetches the Convex deployment URL from a server-side endpoint to avoid
+ * exposing it in the client bundle (no VITE_ prefix needed).
  */
 
 import { enqueueRequest } from "./offlineQueue";
 
-const env: Record<string, string | undefined> =
-  (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env) || {};
+let convexUrlCache: string | null = null;
+let convexUrlPromise: Promise<string> | null = null;
 
-const CONVEX_URL = env.VITE_CONVEX_URL?.trim() || "";
+/** Fetches the Convex URL from the server-side endpoint. */
+async function fetchConvexUrl(): Promise<string> {
+  if (convexUrlCache) return convexUrlCache;
+  if (convexUrlPromise) return convexUrlPromise;
 
-function resolveApiBase(): string {
-  if (CONVEX_URL) return CONVEX_URL.replace(/\/+$/, "");
-  if (typeof window !== "undefined" && window.location?.hostname) {
-    const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
-    if (!isLocal) return window.location.origin;
-  }
-  return "http://localhost:3210";
+  convexUrlPromise = (async () => {
+    try {
+      const res = await fetch("/api/convex-url");
+      if (!res.ok) throw new Error(`Failed to fetch Convex URL: ${res.status}`);
+      const data = await res.json();
+      const url = data.url.replace(/\/+$/, "");
+      convexUrlCache = url;
+      return url;
+    } catch (error) {
+      convexUrlPromise = null;
+      throw error;
+    }
+  })();
+
+  return convexUrlPromise!;
 }
 
-export const API_BASE_URL = resolveApiBase();
+/** Base URL for Convex HTTP actions. */
+export async function resolveApiBase(): Promise<string> {
+  // Allow override via env for local development
+  const env = (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env) || {};
+  if (env.CONVEX_URL) return env.CONVEX_URL.replace(/\/+$/, "");
+
+  // Fallback to server-provided URL
+  return fetchConvexUrl();
+}
 
 const TOKEN_STORAGE_KEY = "aarogya.auth.token";
 
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
+  const env = (typeof import.meta !== "undefined" && (import.meta as { env?: Record<string, string> }).env) || {};
   const fromEnv = env.VITE_API_TOKEN;
   if (fromEnv) return fromEnv;
   return window.localStorage.getItem(TOKEN_STORAGE_KEY);
@@ -144,10 +164,11 @@ interface RequestOptions {
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = getAuthToken();
+  const baseUrl = await resolveApiBase();
   let response: Response;
 
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(`${baseUrl}${path}`, {
       method: options.method ?? "GET",
       headers: {
         "content-type": "application/json",
@@ -283,7 +304,8 @@ export async function postTriage(input: {
 
 export async function checkBackend(): Promise<boolean> {
   try {
-    const response = await fetch(`${API_BASE_URL}/api/health`, {
+    const baseUrl = await resolveApiBase();
+    const response = await fetch(`${baseUrl}/api/health`, {
       method: "GET",
       headers: getAuthToken() ? { authorization: `Bearer ${getAuthToken()}` } : {},
     });

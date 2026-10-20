@@ -4,9 +4,6 @@
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
   "installCommand": "npm install --legacy-peer-deps",
-  "env": {
-    "VITE_CONVEX_URL": "@convex-url"
-  },
   "headers": [
     {
       "source": "/assets/(.*)",
@@ -16,6 +13,7 @@
     }
   ],
   "rewrites": [
+    { "source": "/api/convex-url", "destination": "/api/convex-url" },
     { "source": "/((?!api/).*)", "destination": "/index.html" }
   ]
 }

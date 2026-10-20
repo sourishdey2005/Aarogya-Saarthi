@@ -1,4 +1,4 @@
-import { mutation, action } from "./_generated/server";
+import { mutation, action, query } from "./_generated/server";
 import { v } from "convex/values";
 
 interface TriageInput {

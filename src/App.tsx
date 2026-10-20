@@ -3,12 +3,12 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { Screen, Patient, PrescriptionScan, HomeVisitTask } from './types';
 import { INITIAL_PATIENTS, INITIAL_PRESCRIPTION_SCANS, INITIAL_HOME_VISITS } from './data/mockData';
 import {
-  API_BASE_URL,
   createPatient,
   getAuthToken,
   getSyncPending,
   listPatients,
   newClientRecordId,
+  resolveApiBase,
   setAuthToken,
   type TriageAdvice,
   type TriageResult,
@@ -130,9 +130,10 @@ export default function App() {
 
   /** Replays the offline queue and refreshes the counters. */
   const flushOfflineQueue = useCallback(async () => {
+    const baseUrl = await resolveApiBase();
     const result = await flushQueue(async (url, method, body) => {
       try {
-        const response = await fetch(`${API_BASE_URL}${url}`, {
+        const response = await fetch(`${baseUrl}${url}`, {
           method,
           headers: {
             'content-type': 'application/json',
