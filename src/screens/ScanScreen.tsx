@@ -289,6 +289,11 @@ export const ScanScreen: React.FC<ScanScreenProps> = ({
     setIsUploading(true);
 
     try {
+      if (!patientId) {
+        showToast('पहले मरीज़ पंजीकृत करें या चुनें (Register or select a patient first)');
+        return;
+      }
+
       const imageBase64 = capturedImage ? await imageToBase64(capturedImage) : null;
       const ocrTextValue =
         ocrText ||
