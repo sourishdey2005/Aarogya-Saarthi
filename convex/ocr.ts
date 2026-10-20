@@ -4,7 +4,7 @@ import {
   extractJson,
   isNvidiaConfigured,
   nvidiaVisionChat,
-  nvidiaVisionConfig,
+  nvidiaVisionConfigWithKey,
 } from "./ai";
 
 interface RawMedicine {
@@ -73,11 +73,15 @@ export const extractPrescription = action({
   args: {
     imageBase64: v.string(),
     mimeType: v.optional(v.string()),
+    apiKey: v.optional(v.string()),
   },
   handler: async (_ctx, args) => {
-    if (!isNvidiaConfigured()) {
+    // Key injected by the Vercel proxy wins over the deployment env.
+    const config = nvidiaVisionConfigWithKey(args.apiKey);
+
+    if (!isNvidiaConfigured(config)) {
       throw new Error(
-        "AI scanner is not configured. Add NVIDIA_API_KEY to the Convex deployment."
+        "AI scanner is not configured. Set NVIDIA_API_KEY in the app environment."
       );
     }
 
@@ -92,22 +96,24 @@ export const extractPrescription = action({
         ? args.mimeType
         : "image/jpeg";
 
-    const config = nvidiaVisionConfig();
-    const completion = await nvidiaVisionChat({
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: [
-            { type: "text", text: "Extract the prescription as JSON." },
-            {
-              type: "image_url",
-              image_url: { url: `data:${mimeType};base64,${image}` },
-            },
-          ],
-        },
-      ],
-    });
+    const completion = await nvidiaVisionChat(
+      {
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          {
+            role: "user",
+            content: [
+              { type: "text", text: "Extract the prescription as JSON." },
+              {
+                type: "image_url",
+                image_url: { url: `data:${mimeType};base64,${image}` },
+              },
+            ],
+          },
+        ],
+      },
+      config
+    );
 
     const parsed =
       extractJson<RawExtraction>(completion.content) ??

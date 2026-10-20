@@ -62,8 +62,25 @@ export function nvidiaConfig(): NvidiaConfig {
   };
 }
 
-export function isNvidiaConfigured(): boolean {
-  return Boolean(nvidiaConfig().apiKey);
+export function isNvidiaConfigured(config: NvidiaConfig = nvidiaConfig()): boolean {
+  return Boolean(config.apiKey);
+}
+
+/**
+ * Applies an API key supplied with the request (Vercel injects its own key when
+ * it forwards AI calls). A request-supplied key wins over the deployment env.
+ */
+export function nvidiaConfigWithKey(apiKey?: string): NvidiaConfig {
+  const config = nvidiaConfig();
+  const key = typeof apiKey === "string" ? apiKey.trim() : "";
+  return key ? { ...config, apiKey: key } : config;
+}
+
+/** Vision configuration with an optional request-supplied key. */
+export function nvidiaVisionConfigWithKey(apiKey?: string): NvidiaConfig {
+  const config = nvidiaVisionConfig();
+  const key = typeof apiKey === "string" ? apiKey.trim() : "";
+  return key ? { ...config, apiKey: key } : config;
 }
 
 /**
@@ -185,9 +202,10 @@ export async function nvidiaChat(
 
 /** Vision call for prescription photos (image_url content parts). */
 export async function nvidiaVisionChat(
-  options: NvidiaChatOptions
+  options: NvidiaChatOptions,
+  config: NvidiaConfig = nvidiaVisionConfig()
 ): Promise<NvidiaChatResult> {
-  return nvidiaChat(options, nvidiaVisionConfig());
+  return nvidiaChat(options, config);
 }
 
 /** Pulls the first JSON object out of a model answer (handles code fences). */

@@ -38,6 +38,23 @@ export function resolveApiBase(): string {
   return url;
 }
 
+/**
+ * Base URL for the AI endpoints (`/api/triage`, `/api/ocr`).
+ *
+ * - Local development talks to the Convex HTTP API directly, where the AI
+ *   logic lives.
+ * - In production the request stays on the app's own origin, so it hits the
+ *   Vercel functions in `/api` which inject the NVIDIA API key from the
+ *   Vercel dashboard before forwarding to Convex.
+ */
+function resolveAiBase(): string {
+  const isLocal =
+    typeof window !== "undefined" &&
+    /^(localhost|127\.0\.0\.1|\[::1\])$/.test(window.location.hostname);
+  if (isLocal || import.meta.env.DEV) return resolveApiBase();
+  return "";
+}
+
 const TOKEN_STORAGE_KEY = "aarogya.auth.token";
 const WORKER_STORAGE_KEY = "aarogya.auth.worker";
 
@@ -187,11 +204,13 @@ interface RequestOptions {
   method?: "GET" | "POST" | "PATCH" | "DELETE";
   body?: unknown;
   signal?: AbortSignal;
+  /** Overrides the base URL (used to send AI calls through Vercel). */
+  base?: string;
 }
 
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const token = getAuthToken();
-  const baseUrl = resolveApiBase();
+  const baseUrl = options.base ?? resolveApiBase();
   let response: Response;
 
   try {
@@ -326,7 +345,11 @@ export async function postTriage(input: {
   symptoms?: string[];
   raw_transcript?: string | null;
 }): Promise<TriageResponse> {
-  return request<TriageResponse>("/api/triage", { method: "POST", body: input });
+  return request<TriageResponse>("/api/triage", {
+    method: "POST",
+    body: input,
+    base: resolveAiBase(),
+  });
 }
 
 export interface OcrMedicine {
@@ -349,7 +372,11 @@ export async function ocrPrescription(input: {
   image_base64: string;
   mime_type?: string;
 }): Promise<OcrResult> {
-  return request<OcrResult>("/api/ocr", { method: "POST", body: input });
+  return request<OcrResult>("/api/ocr", {
+    method: "POST",
+    body: input,
+    base: resolveAiBase(),
+  });
 }
 
 /** Fetches the worker tied to the stored auth token (null when signed out). */

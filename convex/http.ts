@@ -58,6 +58,16 @@ function bearerToken(req: Request): string | null {
   return token || null;
 }
 
+/**
+ * NVIDIA API key injected by the Vercel proxy. When present it overrides the
+ * key stored in the deployment environment, so the key only has to be managed
+ * in one place (Vercel -> Settings -> Environment Variables).
+ */
+function nvidiaApiKey(req: Request): string | undefined {
+  const value = req.headers.get("x-nvidia-api-key")?.trim();
+  return value || undefined;
+}
+
 async function readJson(req: Request): Promise<Record<string, any>> {
   const text = await req.text();
   if (!text) return {};
@@ -357,6 +367,7 @@ router.route({
     const result = await ctx.runAction(internal.ocr.extractPrescription, {
       imageBase64,
       mimeType: str(body.mime_type) ?? str(body.mimeType),
+      apiKey: nvidiaApiKey(req),
     });
     return json(result);
   }),
@@ -370,6 +381,7 @@ router.route({
     const result = await ctx.runAction(internal.triage.postTriage, {
       symptoms: Array.isArray(body.symptoms) ? body.symptoms.map(String) : undefined,
       rawTranscript: str(body.raw_transcript) ?? str(body.rawTranscript),
+      apiKey: nvidiaApiKey(req),
     });
     return json(result);
   }),
