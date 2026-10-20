@@ -116,6 +116,9 @@ function serializePatient(p: any) {
     age: p.age ?? null,
     gender: p.gender ?? null,
     village: p.village ?? null,
+    phone: p.phone ?? null,
+    address: p.address ?? null,
+    blood_group: p.bloodGroup ?? null,
     created_at: iso(p.createdAt ?? p.created_at) ?? new Date().toISOString(),
     symptom_log_count: p.symptomLogCount ?? p.symptoms?.length ?? 0,
     last_captured_at: p.lastCapturedAt ?? p.lastVisit ?? null,
@@ -235,6 +238,9 @@ router.route({
       age: num(body.age),
       gender: str(body.gender) as any,
       village: str(body.village),
+      phone: str(body.phone),
+      address: str(body.address),
+      bloodGroup: str(body.blood_group),
       clientRecordId: str(body.client_record_id) ?? str(body.client_id),
     });
     return json(

@@ -21,6 +21,9 @@ export default defineSchema({
     age: v.optional(v.number()),
     gender: v.optional(v.union(v.literal("female"), v.literal("male"), v.literal("other"))),
     village: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    bloodGroup: v.optional(v.string()),
     photoUrl: v.optional(v.string()),
     symptoms: v.array(v.object({
       id: v.string(),

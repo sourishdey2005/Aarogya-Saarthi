@@ -13,8 +13,11 @@ export interface Patient {
   nameHi: string;
   nameEn: string;
   age: number;
-  gender: 'female' | 'male' | 'other';
+  gender: 'female' | 'male' | 'other' | null;
   ward: string;
+  phone: string;
+  address: string;
+  bloodGroup: string;
   photoUrl?: string;
   symptoms: Symptom[];
   triageLevel: 1 | 2 | 3;

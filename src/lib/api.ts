@@ -123,6 +123,9 @@ export interface ApiPatient {
   age: number | null;
   gender: "female" | "male" | "other" | null;
   village: string | null;
+  phone: string | null;
+  address: string | null;
+  blood_group: string | null;
   created_at: string;
   symptom_log_count?: number;
   last_captured_at?: string | null;
@@ -280,6 +283,9 @@ export interface CreatePatientInput {
   age?: number | null;
   gender?: "female" | "male" | "other" | null;
   village?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  blood_group?: string | null;
   client_id?: string;
 }
 

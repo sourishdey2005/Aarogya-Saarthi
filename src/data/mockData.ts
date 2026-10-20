@@ -9,6 +9,9 @@ export const INITIAL_PATIENTS: Patient[] = [
     age: 42,
     gender: 'female',
     ward: 'वार्ड ४ (Ward 4)',
+    phone: '9876543210',
+    address: 'ग्राम रामपुर, ब्लॉक प्राथमिक स्वास्थ्य केंद्र',
+    bloodGroup: 'B+',
     photoUrl: 'https://lh3.googleusercontent.com/aida-public/AB6AXuDnxJqC0Pa6-pUCGC68IZUtA5T_Fa-BRxOlVdA93uTJars9feBKeZCYx1KgINB7iAxJO0gJMh236vfEjbkPo7KzHzW4dEeWlb54Bn6FOGEv2dvhJCb8LB4-Kq_83ZbWJoaD7BjMi71kbspFMZ0ZiO9G31WSXEPzgd7eVLrxT5123m_DlxPqHQLaPcL2WfCkqq24Ii1jWkoTSFkXpYIvKKeqbCKswo7fj_tQjzARu6hWoDIPKMqEJXfJHA',
     symptoms: [
       { id: 's-1', nameHi: 'तेज़ बुखार (102°F)', nameEn: 'High Fever (3 days)', severity: 'high' },
@@ -30,6 +33,9 @@ export const INITIAL_PATIENTS: Patient[] = [
     age: 26,
     gender: 'female',
     ward: 'वार्ड ३ (Ward 3)',
+    phone: '9123456780',
+    address: 'मोहल्ला गांधी नगर, वार्ड 3',
+    bloodGroup: 'O+',
     symptoms: [
       { id: 's-4', nameHi: 'हल्का सिरदर्द', nameEn: 'Mild Headache', severity: 'mild' },
       { id: 's-5', nameHi: 'कमजोरी', nameEn: 'Fatigue', severity: 'mild' }
@@ -49,6 +55,9 @@ export const INITIAL_PATIENTS: Patient[] = [
     age: 58,
     gender: 'male',
     ward: 'वार्ड ४ (Ward 4)',
+    phone: '9988776655',
+    address: 'मुख्य बाजार, वार्ड 4',
+    bloodGroup: 'A-',
     symptoms: [
       { id: 's-6', nameHi: 'सांस लेने में भारीपन', nameEn: 'Breathlessness', severity: 'high' },
       { id: 's-7', nameHi: 'सीने में जकड़न', nameEn: 'Chest Tightness', severity: 'high' }
@@ -68,6 +77,9 @@ export const INITIAL_PATIENTS: Patient[] = [
     age: 19,
     gender: 'female',
     ward: 'वार्ड २ (Ward 2)',
+    phone: '9011223344',
+    address: 'नई बस्ती, वार्ड 2',
+    bloodGroup: 'AB+',
     symptoms: [
       { id: 's-8', nameHi: 'उल्टी और दस्त', nameEn: 'Vomiting & Diarrhea', severity: 'moderate' }
     ],

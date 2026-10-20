@@ -16,6 +16,9 @@ export const listPatients = query({
       age: p.age,
       gender: p.gender,
       village: p.village,
+      phone: p.phone,
+      address: p.address,
+      bloodGroup: p.bloodGroup,
       createdAt: new Date(p.createdAt).toISOString(),
       symptomLogCount: p.symptoms?.length ?? 0,
       lastCapturedAt: p.lastVisit,
@@ -31,10 +34,13 @@ export const createPatient = mutation({
     age: v.optional(v.number()),
     gender: v.optional(v.union(v.literal("female"), v.literal("male"), v.literal("other"))),
     village: v.optional(v.string()),
+    phone: v.optional(v.string()),
+    address: v.optional(v.string()),
+    bloodGroup: v.optional(v.string()),
     clientRecordId: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
-    const { ashaWorkerId, name, age, gender, village, clientRecordId } = args;
+    const { ashaWorkerId, name, age, gender, village, phone, address, bloodGroup, clientRecordId } = args;
 
     // Idempotent replay: the same client record id never creates duplicates.
     if (clientRecordId) {
@@ -54,6 +60,9 @@ export const createPatient = mutation({
       ...(age !== undefined ? { age } : {}),
       ...(gender ? { gender } : {}),
       ...(village ? { village } : {}),
+      ...(phone ? { phone } : {}),
+      ...(address ? { address } : {}),
+      ...(bloodGroup ? { bloodGroup } : {}),
       symptoms: [],
       triageLevel: 2,
       lastVisit: new Date().toLocaleString("en-IN", { day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }),
@@ -97,6 +106,9 @@ export const getPatientTimeline = query({
         age: patient.age,
         gender: patient.gender,
         village: patient.village,
+        phone: patient.phone,
+        address: patient.address,
+        bloodGroup: patient.bloodGroup,
         createdAt: new Date(patient.createdAt).toISOString(),
       },
       symptomLogs: symptomLogs.map((s) => ({
