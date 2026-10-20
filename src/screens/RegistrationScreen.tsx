@@ -156,11 +156,15 @@ export const RegistrationScreen: React.FC<RegistrationScreenProps> = ({
       triage.triage_result === 'refer_immediately' ? 3 : triage.triage_result === 'home_care' ? 1 : 2;
 
     try {
-      const patient = await onSavePatientAndContinue({
-        nameHi: 'कमला देवी',
-        nameEn: 'Kamla Devi',
-        age: 42,
-        gender,
+    const patientName = name.trim() || (lang === 'hi' ? 'अनाम मरीज़' : 'Unnamed Patient');
+    const ageDigits = age.match(/\d+/);
+    const patientAge = ageDigits ? parseInt(ageDigits[0], 10) : 0;
+
+    const patient = await onSavePatientAndContinue({
+      nameHi: patientName,
+      nameEn: patientName,
+      age: patientAge,
+      gender,
         ward: 'रामपुर केंद्र (Ward 4)',
         symptoms: detectedSymptoms,
         triageLevel,
